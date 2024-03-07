@@ -1,0 +1,22 @@
+{
+  "name": "sand3",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2",
+    "vite": "^5.1.4"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.12.0",
+    "@types/three": "^0.162.0",
+    "three": "^0.162.0",
+    "three-bvh-csg": "^0.0.16",
+    "three-mesh-bvh": "^0.7.3"
+  }
+}
