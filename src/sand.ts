@@ -3,7 +3,7 @@ import * as THREE from "three"
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast} from 'three-mesh-bvh';
 import {getCanvas, getCanvasTexture, getTexture, rand} from "./utils"
 import { vertexShader, fragmentShader } from "./shaders";
-import { SandDrawer, ISandDrawer } from "./SandDrawer";
+import { SandDrawer, ISandDrawer } from "./__SandDrawer";
 import { VertexNormalsHelper } from 'three/addons/helpers/VertexNormalsHelper.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 

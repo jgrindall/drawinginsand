@@ -7,12 +7,24 @@ import {
 
 type A = any
 
+const SAND_COLOR = {
+	r: 255,
+	g: 150,
+	b: 120
+}
+
 export class SandSculptTool{
 	constructor(private targetMesh: THREE.Mesh, private params: any){
 
 	}
 
 	perform(point: THREE.Vector3, brushOnly = false, accumulatedFields:A = {}){
+		const percent = 99
+		const r = Math.random() * percent - percent/2
+		let sizeWithNoise = this.params.size * (1 + r/100)
+
+		console.log(sizeWithNoise)
+
 		const {
 			accumulatedTriangles = new Set(),
 			accumulatedIndices = new Set(),
@@ -24,7 +36,8 @@ export class SandSculptTool{
 	
 		const sphere = new THREE.Sphere()
 		sphere.center.copy( point ).applyMatrix4( inverseMatrix )
-		sphere.radius = this.params.size
+
+		sphere.radius = sizeWithNoise
 	
 		// Collect the intersected vertices
 		const indices = new Set<number>()
@@ -33,9 +46,7 @@ export class SandSculptTool{
 		const indexAttr = this.targetMesh.geometry.index
 		const posAttr = this.targetMesh.geometry.attributes.position
 		const normalAttr = this.targetMesh.geometry.attributes.normal
-		
 		const colorAttr = this.targetMesh.geometry.attributes.color
-
 		const triangles = new Set()
 		//@ts-ignore
 		const bvh = this.targetMesh.geometry.boundsTree;
@@ -125,6 +136,7 @@ export class SandSculptTool{
 			return
 		}
 		// perform vertex adjustment
+
 		const targetHeight = this.params.intensity * 0.0001
 		const plane = new THREE.Plane()
 		plane.setFromNormalAndCoplanarPoint( normal, planePoint )
@@ -132,7 +144,7 @@ export class SandSculptTool{
 			tempVec.fromBufferAttribute( posAttr, index )
 			// compute the offset intensity
 			const dist = tempVec.distanceTo( localPoint )
-			let intensity = 1.0 - ( dist / this.params.size )
+			let intensity = 1.0 - ( dist / sizeWithNoise )
 			intensity = Math.pow( intensity, 2 );
 			tempVec.addScaledVector( normal, - intensity * targetHeight )
 	
@@ -143,8 +155,10 @@ export class SandSculptTool{
 			posAttr.setXYZ( index, tempVec.x, tempVec.y, tempVec.z )
 			normalAttr.setXYZ( index, 0, 0, 0 )
 	
-			//colors.push(255/255, 150/255, 120/255)
-			colorAttr.setXYZ(index, 220/255, 120/255, 80/255)
+			
+			const noise2 = Math.random() * 20
+			const darken = noise2
+			colorAttr.setXYZ(index, (SAND_COLOR.r - darken)/255, (SAND_COLOR.g - darken)/255, (SAND_COLOR.b - darken)/255)
 	
 		} )
 		// If we found vertices
