@@ -2,6 +2,10 @@
 import * as THREE from "three"
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast} from 'three-mesh-bvh';
 import {getCanvas, getCanvasTexture, getTexture, rand} from "./utils"
+import { vertexShader, fragmentShader } from "./shaders";
+import { SandDrawer, ISandDrawer } from "./SandDrawer";
+import { VertexNormalsHelper } from 'three/addons/helpers/VertexNormalsHelper.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 
 /**
@@ -14,9 +18,11 @@ THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree
 THREE.Mesh.prototype.raycast = acceleratedRaycast
 
-const SIZE = 512
+const SIZE = 256
 
 class Sand{
+
+    private mode: "draw" | "move" = "move"
 
     private scene: THREE.Scene | undefined
     private camera: THREE.Camera | undefined
@@ -42,22 +48,42 @@ class Sand{
     private b4: THREE.Float32BufferAttribute | undefined
     private b5: THREE.Float32BufferAttribute | undefined
 
-    private currentPos: THREE.Vector2 | undefined = undefined
+    private drawer: ISandDrawer | undefined
+
+    private controls: OrbitControls | undefined
     
     constructor(){
         this.onMouseDown = this.onMouseDown.bind(this)
         this.onMouseMove = this.onMouseMove.bind(this)
         this.onMouseUp = this.onMouseUp.bind(this)
-        this.addListeners()
         this.init()
         this.addPlane()
-        this.addPoints()
+        //this.addPoints()
+        this.addListeners()
         this.render()
     }
 
     private addListeners(){
         window.addEventListener("mousedown", this.onMouseDown, false)
+        this.drawer = new SandDrawer(this.planeGeometry!, this.planeMesh!, this.raycaster!, this.camera!)
+
+        const moveButton = document.getElementById("move") as HTMLButtonElement
+        const drawButton = document.getElementById("draw") as HTMLButtonElement
+
+        moveButton.addEventListener("click", ()=>{
+            this.mode = "move"
+            this.controls!.enabled = true
+        })
+
+        drawButton.addEventListener("click", ()=>{
+            this.mode = "draw"
+            this.controls!.enabled = false
+        })
+
     }
+
+
+    /**
     private indent(pos: THREE.Vector2){
         const DEPTH:number = 0.02
         this.raycaster!.setFromCamera(pos, this.camera!)
@@ -75,87 +101,19 @@ class Sand{
             })
         }
     }
-    private draw(pos: THREE.Vector2){
-        console.log(pos)
-        if(this.currentPos){
-            const delta = pos
-                .clone()
-                .sub(this.currentPos)
-            delta.setLength(0.01)
-            const deltaRotated = new THREE.Vector2(-delta.y, delta.x)
-            const offset = pos
-                .clone()
-                .add(deltaRotated)
-            this.bump(offset)
-        }
-        
-        this.indent(pos)
-        //this.indent(pos.clone().add(new THREE.Vector2(0.02, 0.02)))
-        //this.indent(pos.clone().add(new THREE.Vector2(0.05, 0.05)))
-        //this.bump()
-    }
-    private bump(pos: THREE.Vector2){
+    private drawBump(pos: THREE.Vector2){
         console.log("add some bumps")
         //draw some bumps
-
         console.log(this.bumpCanvas, this.displacementCanvas)
-
         this.bumpCanvas!.getContext("2d")!.drawImage(this.grainOfSandCanvas!, 64, 64, 32, 32)
         this.bumpMap!.needsUpdate = true
-
         this.displacementCanvas!.getContext("2d")!.drawImage(this.grainOfSandCanvas!, 64, 64, 32, 32)
         this.displacementMap!.needsUpdate = true
-
         this.planeMaterial!.needsUpdate = true
     }
 
-    private getNormAttr(a: number){
-        const x = this.planeGeometry!.attributes.normal.getX(a)
-        const y = this.planeGeometry!.attributes.normal.getY(a)
-        const z = this.planeGeometry!.attributes.normal.getZ(a)
-        return {
-            x,
-            y,
-            z
-        }
-    }
-    private getPosAttr(a: number){
-        const x = this.planeGeometry!.attributes.position.getX(a)
-        const y = this.planeGeometry!.attributes.position.getY(a)
-        const z = this.planeGeometry!.attributes.position.getZ(a)
-        return {
-            x,
-            y,
-            z
-        }
-    }
+    **/
 
-    /**
-     * Make the vertex black
-     * @param a 
-     */
-    private updateColorAttr(a: number){
-        const clr = 0.05
-        this.planeGeometry!.attributes.color.setXYZ(a,     clr, clr, clr)
-        //this.geometry!.attributes.color.setXYZ(a + 1, 0, 0, 0);
-        //this.geometry!.attributes.color.setXYZ(a + 2, 0, 0, 0);
-        this.planeGeometry!.attributes.color.needsUpdate = true; 
-    }
-    private updateNormAttr(a: number){
-        return
-        /*
-        this.planeGeometry!.attributes.normal.setXYZ(a,     -1, 0, 1)
-        this.planeGeometry!.attributes.normal.setXYZ(a + 1, -1, 0, 1)
-        this.planeGeometry!.attributes.normal.setXYZ(a + 2, -1, 0, 1)
-        this.planeGeometry!.attributes.normal.needsUpdate = true
-        */
-    }
-    private updatePosAttr(a: number, p:{x:number, y:number, z:number}){
-        this.planeGeometry!.attributes.position.setXYZ(a,     p.x, p.y, p.z)
-        //this.geometry!.attributes.position.setXYZ(a + 1, p.x, p.y, p.z)
-        //this.geometry!.attributes.position.setXYZ(a + 2, p.x, p.y, p.z)
-        this.planeGeometry!.attributes.position.needsUpdate = true        
-    }
 
     /**
      * Convert mouse event to 2D position in the camera view, -1 to 1
@@ -173,11 +131,13 @@ class Sand{
      * @param event 
      */
     private onMouseDown(event: MouseEvent){
+        if(this.mode === "move"){
+            return
+        }
         const pos = this.eventToViewportPos(event)
-        this.draw(pos)
+        this.drawer!.drawAt(pos)
         window.addEventListener("mousemove", this.onMouseMove, false)
         window.addEventListener("mouseup", this.onMouseUp, false)
-        this.currentPos = pos
     }
 
     /**
@@ -186,19 +146,7 @@ class Sand{
      */
     private onMouseMove(event: MouseEvent){
         const pos = this.eventToViewportPos(event)
-        const dx = pos.x - this.currentPos!.x
-        const dy = pos.y - this.currentPos!.y
-        const lenSqr =  dx * dx + dy * dy
-        // use 'num' segments
-        let num = Math.round(lenSqr * 50000) + 16
-        num = 10
-        for(let i = 0; i < num; i++){
-            const lerp = i / (num - 1)
-            const p = new THREE.Vector2(this.currentPos!.x + lerp * dx, this.currentPos!.y + lerp * dy)
-            this.draw(p)
-        }
-        // store the last position for next time
-        this.currentPos = pos
+        this.drawer!.moveTo(pos)
     }
     
     /**
@@ -211,11 +159,7 @@ class Sand{
 
     private async addPlane(){
         this.planeGeometry = new THREE.PlaneGeometry(10, 10, SIZE, SIZE)
-        this.planeGeometry.rotateX(-Math.PI * 0.5)
-
-        //@ts-ignore
-        this.planeGeometry.computeBoundsTree()
-    
+        
         this.planeMaterial = new THREE.MeshStandardMaterial({
             color: "#e5d5ba",
             roughness: 1, 
@@ -224,7 +168,8 @@ class Sand{
             displacementScale: 12,
 
             // enable the color attribute
-            vertexColors: true
+            vertexColors: true,
+            side: THREE.DoubleSide
         })
 
         // create a color attribute
@@ -250,21 +195,47 @@ class Sand{
         })
 
         getCanvasTexture("/bump.jpg").then(({texture, canvas}) => {
-            this.bumpMap = texture
-            this.bumpCanvas = canvas
-            this.planeMaterial!.bumpMap = this.bumpMap
-            this.planeMaterial!.needsUpdate = true
+            //this.bumpMap = texture
+            //this.bumpCanvas = canvas
+            //this.planeMaterial!.bumpMap = this.bumpMap
+            //this.planeMaterial!.needsUpdate = true
         })
 
         getCanvasTexture("/sandgray.jpg").then(({texture, canvas}) => {
-            this.displacementMap = texture
-            this.displacementCanvas = canvas
-            this.planeMaterial!.displacementMap = this.displacementMap
-            this.planeMaterial!.needsUpdate = true
+            //this.displacementMap = texture
+            //this.displacementCanvas = canvas
+            //this.planeMaterial!.displacementMap = this.displacementMap
+            //this.planeMaterial!.needsUpdate = true
         })
     
         this.planeMesh = new THREE.Mesh(this.planeGeometry, this.planeMaterial)
+
+        this.planeMesh.updateMatrixWorld()
+
+        //@ts-ignore
+        //this.planeGeometry.computeBoundsTree()
+
+        this.planeGeometry.computeBoundingBox()
+ 
+        this.planeGeometry.computeBoundingSphere()
+
+        //this.planeMaterial.wireframe = true
         this.scene!.add(this.planeMesh)
+
+        this.raycaster = new THREE.Raycaster()
+        this.raycaster.layers.enableAll()
+
+        const helper = new VertexNormalsHelper(this.planeMesh)
+
+        setInterval(()=>{
+            //helper.update()
+            this.planeGeometry?.computeVertexNormals()
+        }, 1000)
+
+        //this.scene!.add( helper )
+
+
+        
     }
 
     private addPoints(){
@@ -327,42 +298,16 @@ class Sand{
                 value: null
             }
         }
-
         this.pointsMaterial = new THREE.ShaderMaterial( {
             uniforms: this.uniforms,
-
-            vertexShader: `
-uniform float time;
-attribute float scale;
-attribute float hue;
-//varying float vHue;
-void main() {
-
-    //vec2 uv = position.xy;
-    //vHue = hue;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = scale * 1.5;
-}
-`,
-
-            fragmentShader: `
-//varying float vHue;
-uniform sampler2D u_texture;
-uniform vec2 u_resolution;
-void main() {
-    vec2 _sample = gl_FragCoord.xy / u_resolution.xy;
-    vec4 fragcolour = texture2D(u_texture, _sample);
-    //vec4 sand = vec4(70.0/255.0, 55.0/255.0, 41.0/255.0, 0.75);
-    vec4 sand = vec4(250.0/255.0, 55.0/255.0, 41.0/255.0, 0.75);
-    gl_FragColor = sand;
-}
-`,
+            vertexShader,
+            fragmentShader,
             vertexColors: true
-        });
-
+        })
         this.pointsMesh = new THREE.Points(this.pointsGeometry, this.pointsMaterial)
         this.scene!.add(this.pointsMesh)
 
+        
     }
 
     /**
@@ -371,20 +316,26 @@ void main() {
     private init(){
         this.scene = new THREE.Scene()
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000)
-        this.camera.position.set(1.25, 7, 7)
-        this.camera.lookAt(this.scene.position)
+        this.camera.position.set(0, 0, -12)
+        this.camera.lookAt(new THREE.Vector3(0, 0, 0))
         this.renderer = new THREE.WebGLRenderer({
             antialias: true
         })
         this.renderer.setSize(window.innerWidth, window.innerHeight)
         document.body.appendChild(this.renderer.domElement)
-    
         
-        const light = new THREE.DirectionalLight(0xffffff, 5)
-        light.position.set(-1, 2, 5)
+        const light = new THREE.DirectionalLight(0xffffff, 4.0)
+        light.position.set(-5, 5, -2)
         this.scene.add(light)
-        this.scene.add(new THREE.AmbientLight(0xffffff, 0.666))
-        this.raycaster = new THREE.Raycaster()
+        this.scene.add(new THREE.AmbientLight(0xffffff, 0.5))
+        this.controls = new OrbitControls(this.camera, this.renderer.domElement );
+
+
+        const lightHelper = new THREE.DirectionalLightHelper( light, 5 );
+        this.scene.add( lightHelper );
+
+
+       
     }
 
     private applyWind(){
@@ -449,6 +400,7 @@ void main() {
     private render(){
         this.applyWind()
         requestAnimationFrame(this.render.bind(this))
+        this.controls!.update();
         this.renderer!.render(this.scene!, this.camera!)
     }
 }

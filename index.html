@@ -8,11 +8,22 @@
       html, body{
         margin:0;padding:0;
       }
+      .buttons{
+        position: absolute;
+        top:20px;
+        right:20px;
+      }
     </style>
 
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="/src/sand.ts"></script>
+    <div id="app">
+
+    </div>
+    <div class="buttons">
+      <button id="move">move</button>
+      <button id="draw">draw</button>
+    </div>
+    <script type="module" src="/src/sculpt.js"></script>
   </body>
 </html>
