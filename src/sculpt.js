@@ -8,6 +8,8 @@ import {
 	INTERSECTED,
 	NOT_INTERSECTED
 } from 'three-mesh-bvh';
+import { vertexShader, fragmentShader } from "./shaders";
+import {getCanvas, getCanvasTexture, getTexture, rand} from "./utils"
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -21,11 +23,10 @@ let lastMouse = new THREE.Vector2()
 let mouseState = false
 let lastMouseState = false
 let lastCastPose = new THREE.Vector3()
-let texture
 
 const params = {
-	size: 0.075,
-	intensity: 500,
+	size: 0.05,
+	intensity: 250,
 	maxSteps: 8,
 	flatShading: false,
 	depth: 3
@@ -58,16 +59,28 @@ function reset() {
 		map: new THREE.TextureLoader().load('./map.jpg'),
 		displacementMap: new THREE.TextureLoader().load('./map.jpg'),
 		displacementScale: 0.05,
-		normalMap: new THREE.TextureLoader().load('./norm.png'),
-		normalScale: new THREE.Vector2( 0.25, 0.25 )
+		bumpMap: new THREE.TextureLoader().load('./bump2.png'),
+		bumpScale:3,
+		vertexColors: true,
+		roughness: 10
 	})
 
 	targetMesh = new THREE.Mesh(
 		geometry,
 		material,
 	)
+
+	// create a color attribute
+	const len = geometry.getAttribute('position').count
+	const colors = []
+	for(let i = 0; i < len; i++){
+		colors.push(255/255, 150/255, 120/255)
+	}
+	geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3))
+
 	targetMesh.rotateX(-0.25)
 	scene.add( targetMesh )
+	addPoints()
 }
 
 function init() {
@@ -105,6 +118,78 @@ function init() {
 	})
 }
 
+function addPoints(){
+	const MAX = 500
+
+	const SIZE = 2
+	
+	const getPos = ()=>{
+		const x = rand(-SIZE/2, SIZE/2)
+		const y = rand(-SIZE/2, SIZE/2)
+		const z = rand(-SIZE/2, SIZE/2)
+		
+		return {x, y, z: 0}
+	}
+	
+	const initialPositions = []
+	const velocities = []
+	const accelerations = []
+	const hues = []
+	const scale = []
+	const pointsGeometry = new THREE.BufferGeometry()
+	for(let i = 0; i < MAX; i++) {
+		const p = getPos()
+		initialPositions.push(p.x)
+		initialPositions.push(p.y)
+		initialPositions.push(p.z)
+		velocities.push(0)
+		velocities.push(0)
+		velocities.push(0)
+		accelerations.push(0)
+		accelerations.push(0)
+		accelerations.push(0)
+
+		hues.push(1)
+		scale.push(10)
+	   
+	}
+
+	console.log(initialPositions)
+
+	const b1 = new THREE.Float32BufferAttribute(initialPositions, 3)
+	const b2 = new THREE.Float32BufferAttribute(velocities, 3)
+	const b3 = new THREE.Float32BufferAttribute(accelerations, 3)
+	const b4 = new THREE.Float32BufferAttribute(hues, 1)
+	const b5 = new THREE.Float32BufferAttribute(scale, 1)
+
+	pointsGeometry.setAttribute('position', b1)
+	pointsGeometry.setAttribute('velocity', b2)
+	pointsGeometry.setAttribute('acceleration', b3)
+	pointsGeometry.setAttribute('hue', b4)
+	pointsGeometry.setAttribute('scale', b5)
+	
+	const uniforms = {
+		u_resolution: {
+			type: "v2",
+			value: new THREE.Vector2(300, 300) 
+		},
+		u_texture:{
+			type: "t",
+			value: null
+		}
+	}
+	const pointsMaterial = new THREE.ShaderMaterial( {
+		uniforms: uniforms,
+		vertexShader,
+		fragmentShader,
+		vertexColors: true
+	})
+	const pointsMesh = new THREE.Points(pointsGeometry, pointsMaterial)
+	scene.add(pointsMesh)
+
+	
+}
+
 // Run the perform the brush movement
 function performStroke( point, brushOnly = false, accumulatedFields = {} ) {
 	const {
@@ -127,6 +212,11 @@ function performStroke( point, brushOnly = false, accumulatedFields = {} ) {
 	const indexAttr = targetMesh.geometry.index;
 	const posAttr = targetMesh.geometry.attributes.position;
 	const normalAttr = targetMesh.geometry.attributes.normal;
+
+
+	const colorAttr = targetMesh.geometry.attributes.color;
+
+
 	const triangles = new Set();
 	const bvh = targetMesh.geometry.boundsTree;
 	bvh.shapecast( {
@@ -225,13 +315,22 @@ function performStroke( point, brushOnly = false, accumulatedFields = {} ) {
 		let intensity = 1.0 - ( dist / params.size )
 		intensity = Math.pow( intensity, 2 );
 		tempVec.addScaledVector( normal, - intensity * targetHeight )
+
+		const noiseAmount = 0.002
+		const noise = Math.random() * noiseAmount - (noiseAmount/2)
+		tempVec.addScalar( noise )
+
 		posAttr.setXYZ( index, tempVec.x, tempVec.y, tempVec.z )
 		normalAttr.setXYZ( index, 0, 0, 0 )
+
+		//colors.push(255/255, 150/255, 120/255)
+		colorAttr.setXYZ(index, 220/255, 120/255, 80/255)
 
 	} )
 	// If we found vertices
 	if ( indices.size ) {
 		posAttr.needsUpdate = true
+		colorAttr.needsUpdate = true
 	}
 }
 
@@ -276,6 +375,9 @@ function updateNormals( triangles, indices ) {
 	indices.forEach( index => {
 		tempVec.fromBufferAttribute( normalAttr, index )
 		tempVec.normalize()
+		const noiseAmount = 0.1
+		const noise = Math.random() * noiseAmount - (noiseAmount/2)
+		tempVec.addScalar( noise )
 		normalAttr.setXYZ( index, tempVec.x, tempVec.y, tempVec.z )
 	})
 	normalAttr.needsUpdate = true
