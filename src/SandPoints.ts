@@ -149,7 +149,12 @@ export class SandPoints implements ISandPoints{
 		if(this.brushActive){
 			const p = this.mouseEventToRendererCoord(e)
 			this.updateMousePos(p)
+			this.addParticles()
 		}
+	}
+
+	private addParticles(): void{
+		
 	}
 	/**
 	 * brush is no longer active
@@ -278,9 +283,8 @@ export class SandPoints implements ISandPoints{
 		const posAttr = this.pointsGeometry!.getAttribute("position")
         const velAttr = this.pointsGeometry!.getAttribute("velocity")
         const accelAttr = this.pointsGeometry!.getAttribute("acceleration")
-        const positions = posAttr.array
-		
-        for(let i = 0; i < positions.length/3; i++){
+        
+        for(let i = 0; i < posAttr.count; i++){
 
 			// current position
             const x = posAttr.getX(i)

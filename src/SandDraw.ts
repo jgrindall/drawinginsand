@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {mergeVertices} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {acceleratedRaycast, computeBoundsTree, disposeBoundsTree} from 'three-mesh-bvh';
 import {SandSculptTool} from "./SculptTool"
-import { AccumFields } from './utils';
+import { AccumFields, rand } from './utils';
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 //@ts-ignore
@@ -135,7 +135,7 @@ export class SandDraw implements ISandDrawer{
 
 	/**
 	 * make a plane buffer geom with 'SEGMENTS' segemnts
-	 * increase this to make it more granular
+	 * increase this to make it more granular, but with worse performance
 	 */
 	private makeObjects(){
 		const SEGMENTS = 256
@@ -143,6 +143,7 @@ export class SandDraw implements ISandDrawer{
 		geometry = mergeVertices(geometry);
 		(geometry.attributes.position as THREE.BufferAttribute).setUsage(THREE.DynamicDrawUsage);
 		(geometry.attributes.normal as THREE.BufferAttribute).setUsage(THREE.DynamicDrawUsage)
+
 		//@ts-ignore
 		geometry.computeBoundsTree({
 			setBoundingBox: false
@@ -164,7 +165,7 @@ export class SandDraw implements ISandDrawer{
 			geometry,
 			material,
 		)
-		// create a color attribute so we can make the sand lower down look wet
+		// create a color attribute so we can make the sand lower down look dark (wet)
 		const len = geometry.getAttribute('position').count
 		const colors = []
 		
@@ -225,8 +226,8 @@ export class SandDraw implements ISandDrawer{
 			tempVec.fromBufferAttribute(normalAttr, index)
 			tempVec.normalize()
 			// add some noise to the normals, makes it look messy and sandy(?)
-			const noiseAmount = 0.2
-			const noise = Math.random() * noiseAmount - (noiseAmount/2)
+			const NOISE_AMOUNT = 0.2
+			const noise = rand(-NOISE_AMOUNT/2, NOISE_AMOUNT/2)
 			tempVec.addScalar(noise)
 			normalAttr.setXYZ(index, tempVec.x, tempVec.y, tempVec.z)
 		})
