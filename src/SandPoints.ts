@@ -7,14 +7,14 @@ export interface ISandPoints{
 	destroy():void
 }
 
-const NUM_POINTS = 1000
+const NUM_POINTS = 20000
 
 // useful for debugging
 const MIN_POINT_SIZE = 1
-const MAX_POINT_SIZE = 3
+const MAX_POINT_SIZE = 2
 
 //just on top of the plane
-const Z_POSITION = 0.15
+const Z_POSITION = 0.05
 
 const POINT_COLOR = {
 	r: 176,
@@ -50,7 +50,11 @@ export class SandPoints implements ISandPoints{
 	 */
 	private raycaster: THREE.Raycaster = new THREE.Raycaster()
 
+	/**
+	 * For colors of particles
+	 */
 	private mapCanvas: HTMLCanvasElement | undefined
+	private pointsImageData: Uint8ClampedArray | undefined
 	
 	constructor(private group: THREE.Group, private camera: THREE.PerspectiveCamera, private options:any){
 		this.onPointerDown = this.onPointerDown.bind(this)
@@ -58,12 +62,13 @@ export class SandPoints implements ISandPoints{
 		this.onPointerMove = this.onPointerMove.bind(this)
 		window.addEventListener('pointerdown', this.onPointerDown)
 
-		new THREE.TextureLoader().load('./bump.png', (texture: any)=>{
+		new THREE.TextureLoader().load('./points.png', (texture: any)=>{
 			this.mapCanvas = document.createElement( 'canvas' )
 			this.mapCanvas.width = texture.image.width
 			this.mapCanvas.height = texture.image.height
 			const context = this.mapCanvas.getContext( '2d' )
 			context!.drawImage( texture.image, 0, 0)
+			this.pointsImageData = context!.getImageData(0, 0, this.mapCanvas.width, this.mapCanvas.height).data
 			this.makeObjects()
 			//@ts-ignore - this comes from the bvh plugin
 			this.raycaster.firstHitOnly = true
@@ -138,7 +143,7 @@ export class SandPoints implements ISandPoints{
 	
 	/**
 	 * update the position
-	 * @param e 
+	 * @param e
 	 */
 	private onPointerMove(e: PointerEvent){
 		if(this.brushActive){
@@ -164,19 +169,17 @@ export class SandPoints implements ISandPoints{
 	private getHueFor(x:number, y:number):{r:number, g:number, b:number}{
 		const w = this.mapCanvas!.width
 		const h = this.mapCanvas!.height
-		const context = this.mapCanvas!.getContext('2d')
 		let x2 = (x + this.options.size/2) * w/this.options.size
 		let y2 = (this.options.size/2 - y) * h/this.options.size
 		x2 = Math.floor(x2)
 		y2 = Math.floor(y2)
 		const index = (y2 * this.mapCanvas!.width + x2) * 4
-		const data = context!.getImageData(0, 0, w, h)
 		const pixelClr = {
-			r: data.data[index + 0],
-			g: data.data[index + 1],
-			b: data.data[index + 2],
+			r: this.pointsImageData![index + 0],
+			g: this.pointsImageData![index + 1],
+			b: this.pointsImageData![index + 2],
 		}
-		return getWeightedColor(POINT_COLOR, pixelClr, 0)
+		return getWeightedColor(POINT_COLOR, pixelClr, 0.5)
 	}
 
 
@@ -297,7 +300,8 @@ export class SandPoints implements ISandPoints{
 
 			const distFromMouseSqr = dx*dx + dy*dy
 
-			const FINGER_SIZE_SQR = 0.2 * 0.2
+			const FINGER_SIZE = 0.1
+			const FINGER_SIZE_SQR = FINGER_SIZE * FINGER_SIZE
 			const FORCE = 25
 
 			/**

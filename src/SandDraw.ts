@@ -155,8 +155,8 @@ export class SandDraw implements ISandDrawer{
 			map: new THREE.TextureLoader().load('./map.jpg'),
 			bumpMap: new THREE.TextureLoader().load('./bump.png'),
 			displacementMap: new THREE.TextureLoader().load('./map.jpg'),
-			displacementScale: 0.05,
-			bumpScale:4,
+			displacementScale: 0.025,
+			bumpScale:2,
 			vertexColors: true, // so we can change the color
 			roughness: 100
 		})
