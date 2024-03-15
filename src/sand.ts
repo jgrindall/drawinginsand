@@ -34,10 +34,10 @@ class SandSculpt{
 		document.body.appendChild(this.renderer.domElement)
 		this.scene = new THREE.Scene()
 		
-		const light = new THREE.DirectionalLight(0xffffff, 0.85)
+		const light = new THREE.DirectionalLight(0xffffff, 0.9)
 		light.position.set(1, 1, 1)
 		this.scene.add(light)
-		this.scene.add(new THREE.AmbientLight(0xffffff, 0.66))
+		this.scene.add(new THREE.AmbientLight(0xffffff, 0.75))
 
 		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50)
 		this.camera.position.set(0, 0, 4)

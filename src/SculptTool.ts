@@ -2,6 +2,11 @@ import * as THREE from 'three';
 import {CONTAINED, INTERSECTED, NOT_INTERSECTED} from 'three-mesh-bvh';
 import { rand, AccumFields } from './utils';
 
+/**
+ * copied from https://github.com/gkjohnson/three-mesh-bvh/blob/master/example/sculpt.js
+ * With a few tweaks to make it look nice for sand
+ **/
+
 const SAND_COLOR = {
 	r: 255,
 	g: 150,
@@ -14,11 +19,6 @@ export class SandSculptTool{
 	}
 
 	perform(point: THREE.Vector3, brushOnly = false, accumulatedFields:AccumFields = {}){
-
-		const percent = 99
-		const r = Math.random() * percent - percent/2
-		let sizeWithNoise = this.params.size * (1 + r/100)
-
 		const {
 			accumulatedTriangles = new Set(),
 			accumulatedIndices = new Set(),
@@ -28,11 +28,10 @@ export class SandSculptTool{
 		const inverseMatrix = new THREE.Matrix4()
 		inverseMatrix.copy( this.targetMesh.matrixWorld ).invert()
 	
+		// used for finding intersections
 		const sphere = new THREE.Sphere()
 		sphere.center.copy( point ).applyMatrix4( inverseMatrix )
-
-		// slightly randomize the size
-		sphere.radius = sizeWithNoise
+		sphere.radius = this.params.size
 	
 		// Collect the intersected vertices
 		const indices = new Set<number>()
@@ -140,7 +139,7 @@ export class SandSculptTool{
 
 			// compute the offset intensity
 			const dist = tempVec.distanceTo( localPoint )
-			let intensity = 1.0 - ( dist / sizeWithNoise )
+			let intensity = 1.0 - ( dist / this.params.size )
 			intensity = Math.pow( intensity, 2 );
 			tempVec.addScaledVector( normal, - intensity * targetHeight )
 	
@@ -153,13 +152,13 @@ export class SandSculptTool{
 			normalAttr.setXYZ( index, 0, 0, 0 )
 	
 			// darken the color slightly, so it looks like wet sand below where you are drawing
-			const COLOR_RANDOMNESS = 25
+			const COLOR_RANDOMNESS = 30
 			const amountToDarken = rand(5, COLOR_RANDOMNESS)
 			colorAttr.setXYZ(index, (SAND_COLOR.r - amountToDarken)/255, (SAND_COLOR.g - amountToDarken)/255, (SAND_COLOR.b - amountToDarken)/255)
 	
 		} )
-		// If we found vertices
-		if ( indices.size ) {
+		// If we found vertices, update them
+		if (indices.size) {
 			posAttr.needsUpdate = true
 			colorAttr.needsUpdate = true
 		}

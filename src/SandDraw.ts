@@ -58,7 +58,7 @@ export class SandDraw implements ISandDrawer{
 	 */
 	private mouseState: boolean = false
 	private lastMouseState: boolean = false
-	private lastCastPose: THREE.Vector3 = new THREE.Vector3()
+	private lastHitPosition: THREE.Vector3 = new THREE.Vector3()
 	
 	/**
 	 * A tool to draw with
@@ -127,6 +127,7 @@ export class SandDraw implements ISandDrawer{
 	private onPointerUp(e: PointerEvent){
 		this.brushActive = false
 		//TODO - what does &3 do?
+		console.log(e.buttons, e.buttons & 3)
 		this.mouseState = Boolean(e.buttons & 3)
 		window.removeEventListener('pointermove', this.onPointerMove)
 		window.removeEventListener('pointerup', this.onPointerUp)
@@ -148,14 +149,16 @@ export class SandDraw implements ISandDrawer{
 		})
 
 		// make it look like sand
+
+		//TODO - loading one twice
 		let material = new THREE.MeshStandardMaterial({
 			map: new THREE.TextureLoader().load('./map.jpg'),
-			bumpMap: new THREE.TextureLoader().load('./bump2.png'),
+			bumpMap: new THREE.TextureLoader().load('./bump.png'),
 			displacementMap: new THREE.TextureLoader().load('./map.jpg'),
 			displacementScale: 0.05,
-			bumpScale:3,
+			bumpScale:4,
 			vertexColors: true, // so we can change the color
-			roughness: 50
+			roughness: 100
 		})
 		this.targetMesh = new THREE.Mesh(
 			geometry,
@@ -236,7 +239,7 @@ export class SandDraw implements ISandDrawer{
 	 */
 	public onRender(){
 		if (!this.brushActive) {
-			this.lastCastPose.setScalar(Infinity)
+			this.lastHitPosition.setScalar(Infinity)
 		} 
 		else {
 			this.raycaster.setFromCamera(this.mouse, this.camera!)
@@ -245,21 +248,21 @@ export class SandDraw implements ISandDrawer{
 			if (hit) {
 				// if the last cast pose was missed in the last frame then set it to
 				// the current point so we don't streak across the surface
-				if (this.lastCastPose.x === Infinity) {
-					this.lastCastPose.copy(hit.point)
+				if (this.lastHitPosition.x === Infinity) {
+					this.lastHitPosition.copy(hit.point)
 				}
 				// If the mouse isn't pressed don't perform the stroke
 				if (! (this.mouseState || this.lastMouseState)) {
 					this.tool!.perform(hit.point, true)
 					this.lastMouse.copy(this.mouse)
-					this.lastCastPose.copy(hit.point)
+					this.lastHitPosition.copy(hit.point)
 				}
 				else {
 					// compute the distance the mouse moved and that the cast point moved
 					const mdx = (this.mouse.x - this.lastMouse.x) * window.innerWidth * window.devicePixelRatio
 					const mdy = (this.mouse.y - this.lastMouse.y) * window.innerHeight * window.devicePixelRatio
 					let mdist = Math.sqrt(mdx * mdx + mdy * mdy)
-					let castDist = hit.point.distanceTo(this.lastCastPose)
+					let castDist = hit.point.distanceTo(this.lastHitPosition)
 	
 					const step = params.size * 0.15
 					const percent = Math.max(step / castDist, 1 / params.maxSteps)
@@ -279,10 +282,10 @@ export class SandDraw implements ISandDrawer{
 					}
 					while (castDist > step && mdist > params.size * 200 / hit.distance) {
 						this.lastMouse.lerp(this.mouse, percent)
-						this.lastCastPose.lerp(hit.point, percent)
+						this.lastHitPosition.lerp(hit.point, percent)
 						castDist -= step
 						mdist -= mstep
-						this.tool!.perform(this.lastCastPose, false, sets)
+						this.tool!.perform(this.lastHitPosition, false, sets)
 						stepCount ++;
 						if (stepCount > params.maxSteps) {
 							break
@@ -305,7 +308,7 @@ export class SandDraw implements ISandDrawer{
 			else {
 				// if we didn't hit
 				this.lastMouse.copy(this.mouse)
-				this.lastCastPose.setScalar(Infinity)
+				this.lastHitPosition.setScalar(Infinity)
 			}
 		}
 		this.lastMouseState = this.mouseState
@@ -322,7 +325,7 @@ export class SandDraw implements ISandDrawer{
 		if (this.targetMesh) {
 			this.targetMesh!.geometry.dispose()
 			//@ts-ignore
-			this.targetMesh!.material.dispose()
+			this.targetMesh!.material!.dispose()
 			this.group!.remove(this.targetMesh)
 		}
 	}

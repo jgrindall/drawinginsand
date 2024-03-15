@@ -1,24 +1,25 @@
 import * as THREE from 'three';
 import { vertexShader, fragmentShader } from "./shaders";
-import {rand, guard} from "./utils"
+import {rand, guard, getWeightedColor} from "./utils"
 
 export interface ISandPoints{
 	onRender(delta: number):void
 	destroy():void
 }
 
-const NUM_POINTS = 4000
+const NUM_POINTS = 1000
 
 // useful for debugging
-const POINT_SIZE = 2
+const MIN_POINT_SIZE = 1
+const MAX_POINT_SIZE = 3
 
 //just on top of the plane
 const Z_POSITION = 0.15
 
 const POINT_COLOR = {
-	r: 166,
-	g: 120,
-	b: 96
+	r: 176,
+	g: 130,
+	b: 112
 }
 
 export class SandPoints implements ISandPoints{
@@ -40,23 +41,34 @@ export class SandPoints implements ISandPoints{
 	private currentPos: THREE.Vector3 = new THREE.Vector3()
 	
 	/**
-	 * drawing?
+	 * drawing or not?
 	 */
 	private brushActive:boolean = false
 
 	/**
-	 * For finding where they clicked
+	 * For finding where they clicked on the mesh
 	 */
 	private raycaster: THREE.Raycaster = new THREE.Raycaster()
+
+	private mapCanvas: HTMLCanvasElement | undefined
 	
 	constructor(private group: THREE.Group, private camera: THREE.PerspectiveCamera, private options:any){
 		this.onPointerDown = this.onPointerDown.bind(this)
 		this.onPointerUp = this.onPointerUp.bind(this)
 		this.onPointerMove = this.onPointerMove.bind(this)
-		this.makeObjects()
-		//@ts-ignore - this comes from the bvh plugin
-		this.raycaster.firstHitOnly = true
 		window.addEventListener('pointerdown', this.onPointerDown)
+
+		new THREE.TextureLoader().load('./bump.png', (texture: any)=>{
+			this.mapCanvas = document.createElement( 'canvas' )
+			this.mapCanvas.width = texture.image.width
+			this.mapCanvas.height = texture.image.height
+			const context = this.mapCanvas.getContext( '2d' )
+			context!.drawImage( texture.image, 0, 0)
+			this.makeObjects()
+			//@ts-ignore - this comes from the bvh plugin
+			this.raycaster.firstHitOnly = true
+
+		})
 
 	}
 	/**
@@ -64,7 +76,9 @@ export class SandPoints implements ISandPoints{
 	 * @param delta - time since last render (ms), used for making things run at the right speed
 	 */
 	public onRender(delta: number):void{
-		this.moveParticlesWithMouse(delta)
+		if(this.pointsGeometry){
+			this.moveParticlesWithMouse(delta)
+		}
 	}
 	
 	/**
@@ -84,6 +98,15 @@ export class SandPoints implements ISandPoints{
 		window.removeEventListener('pointermove', this.onPointerMove)
 		window.removeEventListener('pointerup', this.onPointerUp)
 		window.removeEventListener('pointerdown', this.onPointerDown)
+		this.pointsMesh!.geometry.dispose()
+		this.planeMesh!.geometry.dispose()
+		
+		//@ts-ignore
+		this.pointsMesh!.material!.dispose()
+		
+		//@ts-ignore
+		this.planeMesh!.material!.dispose()
+
 		this.group.remove(this.pointsMesh!)
 		this.group.remove(this.planeMesh!)
 	}
@@ -132,6 +155,30 @@ export class SandPoints implements ISandPoints{
 		window.removeEventListener('pointerup', this.onPointerUp)
 	}
 
+	/**
+	 * Look up the color of the sand, make the particles match
+	 * @param x 
+	 * @param y 
+	 * @returns 
+	 */
+	private getHueFor(x:number, y:number):{r:number, g:number, b:number}{
+		const w = this.mapCanvas!.width
+		const h = this.mapCanvas!.height
+		const context = this.mapCanvas!.getContext('2d')
+		let x2 = (x + this.options.size/2) * w/this.options.size
+		let y2 = (this.options.size/2 - y) * h/this.options.size
+		x2 = Math.floor(x2)
+		y2 = Math.floor(y2)
+		const index = (y2 * this.mapCanvas!.width + x2) * 4
+		const data = context!.getImageData(0, 0, w, h)
+		const pixelClr = {
+			r: data.data[index + 0],
+			g: data.data[index + 1],
+			b: data.data[index + 2],
+		}
+		return getWeightedColor(POINT_COLOR, pixelClr, 0)
+	}
+
 
 	/**
 	 * Make the points (particles) and the plane
@@ -162,6 +209,10 @@ export class SandPoints implements ISandPoints{
 				z: Z_POSITION
 			}
 		}
+
+		const getRandomSize = ()=>{
+			return rand(MIN_POINT_SIZE, MAX_POINT_SIZE)
+		}
 		
 		const initialPositions:number[] = []
 		const velocities:number[] = []
@@ -183,15 +234,12 @@ export class SandPoints implements ISandPoints{
 			accelerations.push(0)
 			accelerations.push(0)
 
-			// slightly different color for each point
-			const COLOR_VARTAION = 25
-			const darkenAmount = rand(-COLOR_VARTAION, COLOR_VARTAION)
-	
-			hues.push(POINT_COLOR.r + darkenAmount)
-			hues.push(POINT_COLOR.g + darkenAmount)
-			hues.push(POINT_COLOR.b + darkenAmount)
+			const hue = this.getHueFor(p.x, p.y)
+			hues.push(hue.r)
+			hues.push(hue.g)
+			hues.push(hue.b)
 
-			scale.push(POINT_SIZE)
+			scale.push(getRandomSize())
 		   
 		}
 	
