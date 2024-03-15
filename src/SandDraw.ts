@@ -149,12 +149,12 @@ export class SandDraw implements ISandDrawer{
 		})
 
 		// make it look like sand
-
-		//TODO - loading one twice
+		const map = new THREE.TextureLoader().load('./map.jpg')
+		const bumpMap = new THREE.TextureLoader().load('./bump.png')
 		let material = new THREE.MeshStandardMaterial({
-			map: new THREE.TextureLoader().load('./map.jpg'),
-			bumpMap: new THREE.TextureLoader().load('./bump.png'),
-			displacementMap: new THREE.TextureLoader().load('./map.jpg'),
+			map,
+			bumpMap,
+			displacementMap: map,
 			displacementScale: 0.025,
 			bumpScale:2,
 			vertexColors: true, // so we can change the color
