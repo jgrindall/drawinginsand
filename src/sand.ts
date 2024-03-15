@@ -25,6 +25,9 @@ class SandSculpt{
 		this.render(0)
 	}
 
+	/**
+	 * Create the scene, add light and camera
+	 */
 	private makeScene(){
 		this.renderer = new THREE.WebGLRenderer()
 		this.renderer.setSize(window.innerWidth, window.innerHeight)
@@ -45,6 +48,9 @@ class SandSculpt{
 		this.scene.add(this.group)
 	}
 
+	/**
+	 * add drawing and particles
+	 */
 	private init(){
 		this.makeScene()
 		this.drawer = new SandDraw(this.group!, this.camera!, {size: 5})

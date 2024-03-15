@@ -23,14 +23,32 @@ const POINT_COLOR = {
 
 export class SandPoints implements ISandPoints{
 
+	/**
+	 * The points themselves (particles of sand)
+	 */
 	private pointsGeometry: THREE.BufferGeometry | undefined
-	private currentPos: THREE.Vector3 = new THREE.Vector3()
-	private mouse: THREE.Vector2 = new THREE.Vector2()
-	private brushActive:boolean = false
-	private raycaster: THREE.Raycaster = new THREE.Raycaster()
 	private pointsMesh: THREE.Points | undefined
+	
+	/**
+	 * an invisible plane, purely to cast the mouse position on
+	 */
 	private planeMesh: THREE.Mesh | undefined
+	
+	/**
+	 * mouse position from -options.width to options.width
+	 */
+	private currentPos: THREE.Vector3 = new THREE.Vector3()
+	
+	/**
+	 * drawing?
+	 */
+	private brushActive:boolean = false
 
+	/**
+	 * For finding where they clicked
+	 */
+	private raycaster: THREE.Raycaster = new THREE.Raycaster()
+	
 	constructor(private group: THREE.Group, private camera: THREE.PerspectiveCamera, private options:any){
 		this.onPointerDown = this.onPointerDown.bind(this)
 		this.onPointerUp = this.onPointerUp.bind(this)
@@ -41,26 +59,52 @@ export class SandPoints implements ISandPoints{
 		window.addEventListener('pointerdown', this.onPointerDown)
 
 	}
+	/**
+	 * Called every frame
+	 * @param delta - time since last render (ms), used for making things run at the right speed
+	 */
 	public onRender(delta: number):void{
 		this.moveParticlesWithMouse(delta)
 	}
+	
+	/**
+	 * Get the coordinates (-1 -> 1 in both directions)
+	 * @param e 
+	 * @returns 
+	 */
 	private mouseEventToRendererCoord(e: PointerEvent){
 		return {
 			x: (e.clientX / window.innerWidth) * 2 - 1,
 			y: -(e.clientY / window.innerHeight) * 2 + 1
 		}
 	}
-	public destroy(){
 
+	public destroy(){
+		this.brushActive = false
+		window.removeEventListener('pointermove', this.onPointerMove)
+		window.removeEventListener('pointerup', this.onPointerUp)
+		window.removeEventListener('pointerdown', this.onPointerDown)
+		this.group.remove(this.pointsMesh!)
+		this.group.remove(this.planeMesh!)
 	}
+	
+	/**
+	 * raycast to find the mouse position in the world
+	 * if you hit, save the point
+	 * @param p - the mouse position
+	 */
 	private updateMousePos(p: {x: number, y:number}){
-		this.mouse.set(p.x, p.y)
-		this.raycaster.setFromCamera(this.mouse, this.camera!)
+		this.raycaster.setFromCamera(new THREE.Vector2(p.x, p.y), this.camera!)
 		const hit = this.raycaster.intersectObject(this.planeMesh!, true )[0]
 		if(hit){
 			this.currentPos = hit.point
 		}
 	}
+
+	/**
+	 * brush active becomes true, and we start listening for pointer events
+	 * @param e 
+	 */
 	private onPointerDown(e: PointerEvent){
 		const p = this.mouseEventToRendererCoord(e)
 		this.updateMousePos(p)
@@ -69,18 +113,31 @@ export class SandPoints implements ISandPoints{
 		window.addEventListener('pointerup', this.onPointerUp)
 	}
 	
+	/**
+	 * update the position
+	 * @param e 
+	 */
 	private onPointerMove(e: PointerEvent){
 		if(this.brushActive){
 			const p = this.mouseEventToRendererCoord(e)
 			this.updateMousePos(p)
 		}
 	}
-	
+	/**
+	 * brush is no longer active
+	 */
 	private onPointerUp(){
 		this.brushActive = false
 		window.removeEventListener('pointermove', this.onPointerMove)
 		window.removeEventListener('pointerup', this.onPointerUp)
 	}
+
+
+	/**
+	 * Make the points (particles) and the plane
+	 * Make all the attributes for the points like velocity, acceleration etc
+	 * We will use these to move them
+	 */
 	private makeObjects(){		
 		let geometry: THREE.BufferGeometry = new THREE.PlaneGeometry(this.options.size, this.options.size, 1, 1)
 		let material = new THREE.MeshPhongMaterial({
@@ -162,6 +219,10 @@ export class SandPoints implements ISandPoints{
 		this.group!.add(this.pointsMesh)
 	}
 
+	/**
+	 * Move particles near the mouse away, as if you pushed them
+	 * @param delta - time step
+	 */
 	private moveParticlesWithMouse(delta: number){
 		const posAttr = this.pointsGeometry!.getAttribute("position")
         const velAttr = this.pointsGeometry!.getAttribute("velocity")

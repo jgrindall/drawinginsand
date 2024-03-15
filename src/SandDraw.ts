@@ -27,16 +27,47 @@ export interface ISandDrawer{
 	destroy():void
 }
 
+/**
+ * Use the mouse to draw indentations in sand
+ * https://github.com/gkjohnson/three-mesh-bvh/blob/master/example/sculpt.js
+ */
 export class SandDraw implements ISandDrawer{
 	
+	/**
+	 * The mesh you will draw on
+	 */
 	private targetMesh: THREE.Mesh | undefined
+
+	/**
+	 * drawing on/off?
+	 */
 	private brushActive: boolean = false
+	
+	/**
+	 * Current mouse pos
+	 */
 	private mouse: THREE.Vector2 = new THREE.Vector2()
+	
+	/**
+	 * Last mouse pos
+	 */
 	private lastMouse: THREE.Vector2 = new THREE.Vector2()
+	
+	/**
+	 * TODO - what is this?	
+	 */
 	private mouseState: boolean = false
 	private lastMouseState: boolean = false
 	private lastCastPose: THREE.Vector3 = new THREE.Vector3()
+	
+	/**
+	 * A tool to draw with
+	 */
 	private tool: SandSculptTool | undefined
+
+	/**
+	 * Find point of intersection
+	 */
 	private raycaster: THREE.Raycaster = new THREE.Raycaster()
 
 	constructor(private group: THREE.Group, private camera: THREE.PerspectiveCamera, private options:any){
@@ -51,6 +82,11 @@ export class SandDraw implements ISandDrawer{
 		window.addEventListener('pointerdown', this.onPointerDown)
 	}
 
+	/**
+	 * Returns -1 -> 1 in both directions
+	 * @param e 
+	 * @returns 
+	 */
 	private mouseEventToRendererCoord(e: PointerEvent){
 		return {
 			x: (e.clientX / window.innerWidth) * 2 - 1,
@@ -58,16 +94,25 @@ export class SandDraw implements ISandDrawer{
 		}
 	}
 
+	/**
+	 * start drawing
+	 * @param e 
+	 */
 	private onPointerDown(e: PointerEvent){
 		const p = this.mouseEventToRendererCoord(e)
 		this.mouse.set(p.x, p.y)
 		//TODO - what does &3 do?
+		console.log(e.buttons, e.buttons & 3)
 		this.mouseState = Boolean(e.buttons & 3)
 		this.brushActive = true
 		window.addEventListener('pointermove', this.onPointerMove)
 		window.addEventListener('pointerup', this.onPointerUp)
 	}
 	
+	/**
+	 * Update mouse pos
+	 * @param e
+	 */
 	private onPointerMove(e: PointerEvent){
 		if(this.brushActive){
 			const p = this.mouseEventToRendererCoord(e)
@@ -75,6 +120,10 @@ export class SandDraw implements ISandDrawer{
 		}
 	}
 	
+	/**
+	 * stop drawing
+	 * @param e 
+	 */
 	private onPointerUp(e: PointerEvent){
 		this.brushActive = false
 		//TODO - what does &3 do?
@@ -83,6 +132,10 @@ export class SandDraw implements ISandDrawer{
 		window.removeEventListener('pointerup', this.onPointerUp)
 	}
 
+	/**
+	 * make a plane buffer geom with 'SEGMENTS' segemnts
+	 * increase this to make it more granular
+	 */
 	private makeObjects(){
 		const SEGMENTS = 256
 		let geometry: THREE.BufferGeometry = new THREE.PlaneGeometry(this.options.size, this.options.size, SEGMENTS, SEGMENTS)
@@ -93,13 +146,15 @@ export class SandDraw implements ISandDrawer{
 		geometry.computeBoundsTree({
 			setBoundingBox: false
 		})
+
+		// make it look like sand
 		let material = new THREE.MeshStandardMaterial({
 			map: new THREE.TextureLoader().load('./map.jpg'),
 			bumpMap: new THREE.TextureLoader().load('./bump2.png'),
 			displacementMap: new THREE.TextureLoader().load('./map.jpg'),
 			displacementScale: 0.05,
 			bumpScale:3,
-			vertexColors: true,
+			vertexColors: true, // so we can change the color
 			roughness: 50
 		})
 		this.targetMesh = new THREE.Mesh(
@@ -120,6 +175,11 @@ export class SandDraw implements ISandDrawer{
 		this.tool = new SandSculptTool(this.targetMesh!, params)
 	}
 
+	/**
+	 * After drawing, correct the normals so light reflects properly and you get shadows inside ridges
+	 * @param triangles 
+	 * @param indices 
+	 */
 	private updateNormals(triangles: Set<number>, indices: Set<number>){
 		const tempVec = new THREE.Vector3()
 		const tempVec2 = new THREE.Vector3()
@@ -171,6 +231,9 @@ export class SandDraw implements ISandDrawer{
 
 	}
 
+	/**
+	 * Called every frame
+	 */
 	public onRender(){
 		if (!this.brushActive) {
 			this.lastCastPose.setScalar(Infinity)
@@ -248,6 +311,9 @@ export class SandDraw implements ISandDrawer{
 		this.lastMouseState = this.mouseState
 	}
 
+	/**
+	 * tidy up
+	 */
 	public destroy(){
 		this.brushActive = false
 		window.removeEventListener('pointermove', this.onPointerMove)
