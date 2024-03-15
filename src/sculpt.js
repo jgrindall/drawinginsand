@@ -375,10 +375,10 @@ function updateNormals( triangles, indices ) {
 	indices.forEach( index => {
 		tempVec.fromBufferAttribute( normalAttr, index )
 		tempVec.normalize()
-		const noiseAmount = 0.1
-		const noise = Math.random() * noiseAmount - (noiseAmount/2)
-		tempVec.addScalar( noise )
-		normalAttr.setXYZ( index, tempVec.x, tempVec.y, tempVec.z )
+		const NORMALS_RANDOMNESS = 0.1
+		const noise = rand(-NORMALS_RANDOMNESS, NORMALS_RANDOMNESS)
+		tempVec.addScalar(noise)
+		normalAttr.setXYZ(index, tempVec.x, tempVec.y, tempVec.z)
 	})
 	normalAttr.needsUpdate = true
 }

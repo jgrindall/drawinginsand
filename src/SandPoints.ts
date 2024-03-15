@@ -1,150 +1,221 @@
 import * as THREE from 'three';
 import { vertexShader, fragmentShader } from "./shaders";
-import {rand} from "./utils"
+import {rand, guard} from "./utils"
 
 export interface ISandPoints{
-	onRender():void
+	onRender(delta: number):void
 	destroy():void
 }
 
-const MAX = 32
+const NUM_POINTS = 5000
+
+//just on top of the plane
+const Z_POSITION = 0.05
+
+// useful for debugging
+const POINT_SIZE = 2
+
+// sandy color
+const POINT_COLOR = {
+	r: 166,
+	g: 120,
+	b: 96
+}
 
 export class SandPoints implements ISandPoints{
-	private pointsGeometry: THREE.BufferGeometry | undefined
-	
-	private currentPos: any
 
-	constructor(private scene: THREE.Scene, private camera: THREE.PerspectiveCamera){
+	private pointsGeometry: THREE.BufferGeometry | undefined
+	private currentPos: THREE.Vector3 = new THREE.Vector3()
+	private mouse: THREE.Vector2 = new THREE.Vector2()
+	private brushActive:boolean = false
+	private raycaster: THREE.Raycaster = new THREE.Raycaster()
+	private pointsMesh: THREE.Points | undefined
+
+	constructor(private group: THREE.Group, private camera: THREE.PerspectiveCamera, private options:any){
+		this.onPointerDown = this.onPointerDown.bind(this)
+		this.onPointerUp = this.onPointerUp.bind(this)
+		this.onPointerMove = this.onPointerMove.bind(this)
 		this.makeObjects()
-		this.addListeners()
+		//@ts-ignore - this comes from the bvh plugin
+		this.raycaster.firstHitOnly = true
+		window.addEventListener('pointerdown', this.onPointerDown)
+
 	}
-	public onRender(){
-		this.applyWind()
-		this.pointsGeometry!.getAttribute("position").needsUpdate = true
-        this.pointsGeometry!.getAttribute("hue").needsUpdate = true
-        this.pointsGeometry!.getAttribute("scale").needsUpdate = true
+	public onRender(delta: number):void{
+		this.moveParticlesWithMouse(delta)
+	}
+	private mouseEventToRendererCoord(e: PointerEvent){
+		return {
+			x: (e.clientX / window.innerWidth) * 2 - 1,
+			y: -(e.clientY / window.innerHeight) * 2 + 1
+		}
 	}
 	public destroy(){
 
 	}
-	private addListeners(){
-
+	private updateMousePos(p: {x: number, y:number}){
+		this.mouse.set(p.x, p.y)
+		this.raycaster.setFromCamera(this.mouse, this.camera!)
+		const hit = this.raycaster.intersectObject(this.pointsMesh!, true )[0]
+		if(hit){
+			this.currentPos = hit.point
+		}
 	}
-	private makeObjects(){
-
-		const SIZE = 2
-		
+	private onPointerDown(e: PointerEvent){
+		const p = this.mouseEventToRendererCoord(e)
+		this.updateMousePos(p)
+		this.brushActive = true
+		window.addEventListener('pointermove', this.onPointerMove)
+		window.addEventListener('pointerup', this.onPointerUp)
+	}
+	
+	private onPointerMove(e: PointerEvent){
+		if(this.brushActive){
+			const p = this.mouseEventToRendererCoord(e)
+			this.updateMousePos(p)
+		}
+	}
+	
+	private onPointerUp(){
+		this.brushActive = false
+		window.removeEventListener('pointermove', this.onPointerMove)
+		window.removeEventListener('pointerup', this.onPointerUp)
+	}
+	private makeObjects(){		
 		const getPos = ()=>{
-			const x = rand(-SIZE/2, SIZE/2)
-			const y = rand(-SIZE/2, SIZE/2)
-			const z = rand(-SIZE/2, SIZE/2)
-			
-			return {x, y, z: 0}
+			const x = rand(-this.options.size/2, this.options.size/2)
+			const y = rand(-this.options.size/2, this.options.size/2)
+			return {
+				x,
+				y,
+				z: Z_POSITION
+			}
 		}
 		
-		const initialPositions = []
-		const velocities = []
-		const accelerations = []
-		const hues = []
-		const scale = []
-		this.pointsGeometry = new THREE.BufferGeometry()
-		for(let i = 0; i < MAX; i++) {
+		const initialPositions:number[] = []
+		const velocities:number[] = []
+		const accelerations:number[] = []
+		const hues:number[] = []
+		const scale:number[] = []
+        
+
+		for(let i = 0; i < NUM_POINTS; i++) {
 			const p = getPos()
 			initialPositions.push(p.x)
 			initialPositions.push(p.y)
 			initialPositions.push(p.z)
+
 			velocities.push(0)
 			velocities.push(0)
 			velocities.push(0)
+			
 			accelerations.push(0)
 			accelerations.push(0)
 			accelerations.push(0)
+
+			// slightly different color for each point
+			const COLOR_VARTAION = 25
+			const darkenAmount = rand(-COLOR_VARTAION, COLOR_VARTAION)
 	
-			hues.push(1)
-			scale.push(10)
+			hues.push(POINT_COLOR.r + darkenAmount)
+			hues.push(POINT_COLOR.g + darkenAmount)
+			hues.push(POINT_COLOR.b + darkenAmount)
+
+			scale.push(POINT_SIZE)
 		   
 		}
 	
-		const b1 = new THREE.Float32BufferAttribute(initialPositions, 3)
-		const b2 = new THREE.Float32BufferAttribute(velocities, 3)
-		const b3 = new THREE.Float32BufferAttribute(accelerations, 3)
-		const b4 = new THREE.Float32BufferAttribute(hues, 1)
-		const b5 = new THREE.Float32BufferAttribute(scale, 1)
+		const posAttr = new THREE.Float32BufferAttribute(initialPositions, 3)  //vec3
+		const velAttr = new THREE.Float32BufferAttribute(velocities, 3)  //vec3
+		const accelAttr = new THREE.Float32BufferAttribute(accelerations, 3)  //vec3
+		const hueAttr = new THREE.Float32BufferAttribute(hues, 3) //vec3
+		const scaleAttr = new THREE.Float32BufferAttribute(scale, 1) // float
+
+		this.pointsGeometry = new THREE.BufferGeometry()
 	
-		this.pointsGeometry.setAttribute('position', b1)
-		this.pointsGeometry.setAttribute('velocity', b2)
-		this.pointsGeometry.setAttribute('acceleration', b3)
-		this.pointsGeometry.setAttribute('hue', b4)
-		this.pointsGeometry.setAttribute('scale', b5)
-		
-		const uniforms = {
-			u_resolution: {
-				type: "v2",
-				value: new THREE.Vector2(300, 300) 
-			},
-			u_texture:{
-				type: "t",
-				value: null
-			}
-		}
+		this.pointsGeometry.setAttribute('position', posAttr)
+		this.pointsGeometry.setAttribute('velocity', velAttr)
+		this.pointsGeometry.setAttribute('acceleration', accelAttr)
+		this.pointsGeometry.setAttribute('hue', hueAttr)
+		this.pointsGeometry.setAttribute('scale', scaleAttr)
+
 		const pointsMaterial = new THREE.ShaderMaterial( {
-			uniforms: uniforms,
+			uniforms: {},
 			vertexShader,
 			fragmentShader,
 			vertexColors: true
 		})
-		const pointsMesh = new THREE.Points(this.pointsGeometry, pointsMaterial)
-		this.scene!.add(pointsMesh)
+		this.pointsMesh = new THREE.Points(this.pointsGeometry, pointsMaterial)
+		this.group!.add(this.pointsMesh)
 	}
 
-	private applyWind(){
-		return
-		const width = 256
-		const height = 256
-		const b = this.pointsGeometry!.getAttribute("position")
-        const v = this.pointsGeometry!.getAttribute("velocity")
-        const a = this.pointsGeometry!.getAttribute("acceleration")
-        const hu = this.pointsGeometry!.getAttribute("hue")
-        const s = this.pointsGeometry!.getAttribute("scale")
-        var positions = b.array
-        const delta = 0.01
+	private moveParticlesWithMouse(delta: number){
+		const posAttr = this.pointsGeometry!.getAttribute("position")
+        const velAttr = this.pointsGeometry!.getAttribute("velocity")
+        const accelAttr = this.pointsGeometry!.getAttribute("acceleration")
+        const positions = posAttr.array
+		
+		const FRICTION = 0.75
+
         for(let i = 0; i < positions.length/3; i++){
-            const x = b.getX(i)
-            const y = b.getY(i)
-            const pos =  {
-                x: (x + width/2) / width,
-                y: (y + height/2) / height
-            } // 0 to 1
-            pos.x *= width
-            pos.y *= height
-            pos.y = height - pos.y
-            pos.x = Math.round(pos.x)
-            pos.y = Math.round(pos.y)
-            pos.x = Math.min(Math.max(0, pos.x), width)
-            pos.y = Math.min(Math.max(0, pos.y), height)
-            const vx = v.getX(i)
-            const vy = v.getY(i)
-            const ax = a.getX(i)
-            const ay = a.getY(i)
-            b.setXYZ( i, x + vx*delta, y + vy*delta, 0.1)
-            const dx = pos.x - this.currentPos.x
-            const dy = pos.y - this.currentPos.y
-            const dist = Math.sqrt(dx*dx + dy*dy)
-            const maxAccn = 80
-            const fingerSize = 10
-            if(dist < fingerSize){
-                const accnNorm = {x: dx/dist, y: dy/dist}
-                const requiredLength = (1 - dist/fingerSize) * maxAccn
-                const finalAccn = {x: accnNorm.x * requiredLength, y:accnNorm.y*requiredLength}
-                a.setXYZ(i, finalAccn.x, -finalAccn.y, 0)
-                s.setX(i, rand(2, 7))
-                hu.setX(i, 0.0)
+
+			// current position
+            const x = posAttr.getX(i)
+            const y = posAttr.getY(i)
+
+			// distance from the touch
+			const dx = x - this.currentPos.x
+            const dy = y - this.currentPos.y
+			const distFromMouse = Math.sqrt(dx*dx + dy*dy)
+			
+			// current velocity
+			const velX = velAttr.getX(i)
+            const velY = velAttr.getY(i)
+            
+			// current acceleration
+			const accelX = accelAttr.getX(i)
+            const accelY = accelAttr.getY(i)
+
+			const FINGER_SIZE = 0.2
+			const FORCE = 50
+
+			/**
+			 * update the acceleration of any particles near the mouse - they get pushed away
+			 * new acceleration default to 0
+			 */
+			
+			let newAccn = {
+				x:0,
+				y:0
+			}
+			if(distFromMouse < FINGER_SIZE){
+				// normalize the acceleration
+                const accnNorm = {
+					x: dx/distFromMouse,
+					y: dy/distFromMouse
+				}
+                const requiredLength = (1 - distFromMouse/FINGER_SIZE) * FORCE
+				newAccn.x = accnNorm.x * requiredLength
+				newAccn.y = -accnNorm.y * requiredLength
             }
-            else{
-                a.setXYZ(i, 0, 0, 0)
-            }
-            const fallOff = 0.8
-            v.setXYZ(i, (vx + ax*delta)*fallOff, (vy + ay * delta)*fallOff, 0)
+			accelAttr.setXYZ(i, newAccn.x, newAccn.y, 0)
+			const stepSize = delta/2000
+			// next, update the velocity (using the acceleration) and position
+			const newVel = {
+				x: velX + accelX*stepSize,
+				y: velY + accelY*stepSize
+			}
+			// dampen it so they stop
+			velAttr.setXYZ(i, newVel.x*FRICTION, newVel.y*FRICTION, 0)
+			const newPosition = {
+				x: guard(x + velX*stepSize, -this.options.size/2, this.options.size/2),
+				y: guard(y + velY*stepSize, -this.options.size/2, this.options.size/2)
+			} 
+			posAttr.setXYZ(i, newPosition.x, newPosition.y, Z_POSITION)
         }
+
+		this.pointsGeometry!.getAttribute("position").needsUpdate = true
+
 	}
 }
+

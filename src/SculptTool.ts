@@ -1,11 +1,6 @@
 import * as THREE from 'three';
-import {
-	CONTAINED,
-	INTERSECTED,
-	NOT_INTERSECTED
-} from 'three-mesh-bvh';
-
-type A = any
+import {CONTAINED, INTERSECTED, NOT_INTERSECTED} from 'three-mesh-bvh';
+import { rand, AccumFields } from './utils';
 
 const SAND_COLOR = {
 	r: 255,
@@ -14,16 +9,15 @@ const SAND_COLOR = {
 }
 
 export class SandSculptTool{
-	constructor(private targetMesh: THREE.Mesh, private params: any){
+	constructor(private targetMesh: THREE.Mesh, private params: {size:number, intensity:number}){
 
 	}
 
-	perform(point: THREE.Vector3, brushOnly = false, accumulatedFields:A = {}){
+	perform(point: THREE.Vector3, brushOnly = false, accumulatedFields:AccumFields = {}){
+
 		const percent = 99
 		const r = Math.random() * percent - percent/2
 		let sizeWithNoise = this.params.size * (1 + r/100)
-
-		console.log(sizeWithNoise)
 
 		const {
 			accumulatedTriangles = new Set(),
@@ -37,6 +31,7 @@ export class SandSculptTool{
 		const sphere = new THREE.Sphere()
 		sphere.center.copy( point ).applyMatrix4( inverseMatrix )
 
+		// slightly randomize the size
 		sphere.radius = sizeWithNoise
 	
 		// Collect the intersected vertices
@@ -141,24 +136,26 @@ export class SandSculptTool{
 		const plane = new THREE.Plane()
 		plane.setFromNormalAndCoplanarPoint( normal, planePoint )
 		indices.forEach( index => {
-			tempVec.fromBufferAttribute( posAttr, index )
+			tempVec.fromBufferAttribute(posAttr, index)
+
 			// compute the offset intensity
 			const dist = tempVec.distanceTo( localPoint )
 			let intensity = 1.0 - ( dist / sizeWithNoise )
 			intensity = Math.pow( intensity, 2 );
 			tempVec.addScaledVector( normal, - intensity * targetHeight )
 	
-			const noiseAmount = 0.002
-			const noise = Math.random() * noiseAmount - (noiseAmount/2)
+			// add some randomness, make it look rough/sandy
+			const POSITION_RANDOMNESS = 0.002
+			const noise = rand(-POSITION_RANDOMNESS, POSITION_RANDOMNESS)
 			tempVec.addScalar( noise )
 	
 			posAttr.setXYZ( index, tempVec.x, tempVec.y, tempVec.z )
 			normalAttr.setXYZ( index, 0, 0, 0 )
 	
-			
-			const noise2 = Math.random() * 20
-			const darken = noise2
-			colorAttr.setXYZ(index, (SAND_COLOR.r - darken)/255, (SAND_COLOR.g - darken)/255, (SAND_COLOR.b - darken)/255)
+			// darken the color slightly, so it looks like wet sand below where you are drawing
+			const COLOR_RANDOMNESS = 25
+			const amountToDarken = rand(5, COLOR_RANDOMNESS)
+			colorAttr.setXYZ(index, (SAND_COLOR.r - amountToDarken)/255, (SAND_COLOR.g - amountToDarken)/255, (SAND_COLOR.b - amountToDarken)/255)
 	
 		} )
 		// If we found vertices

@@ -15,49 +15,63 @@ class SandSculpt{
 	private renderer: THREE.Renderer | undefined
 	private drawer: ISandDrawer | undefined
 	private points: ISandPoints | undefined
+	private group: THREE.Group | undefined
+	private time:number = 0
+	private enabled: boolean = true
 
 	constructor(){
 		this.render = this.render.bind(this)
 		this.init()
-		this.render()
+		this.render(0)
 	}
 
 	private makeScene(){
 		this.renderer = new THREE.WebGLRenderer()
-		this.renderer.setSize( window.innerWidth, window.innerHeight )
-		document.body.appendChild( this.renderer.domElement )
+		this.renderer.setSize(window.innerWidth, window.innerHeight)
+		document.body.appendChild(this.renderer.domElement)
 		this.scene = new THREE.Scene()
 		
-		const light = new THREE.DirectionalLight( 0xffffff, 0.85 )
-		light.position.set( 1, 1, 1 )
-		this.scene.add( light )
-		this.scene.add( new THREE.AmbientLight( 0xffffff, 0.66 ) )
+		const light = new THREE.DirectionalLight(0xffffff, 0.85)
+		light.position.set(1, 1, 1)
+		this.scene.add(light)
+		this.scene.add(new THREE.AmbientLight(0xffffff, 0.66))
 
-		this.camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 50 )
-		this.camera.position.set( 0, 0, 3 )
+		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50)
+		this.camera.position.set(0, 0, 3)
 		this.camera.far = 100
 		this.camera.updateProjectionMatrix()
+
+		this.group = new THREE.Group()
+		this.scene.add(this.group)
 	}
 
 	private init(){
 		this.makeScene()
-		this.drawer = new SandDraw(this.scene!, this.camera!)
-		this.points = new SandPoints(this.scene!, this.camera!)
+		this.drawer = new SandDraw(this.group!, this.camera!, {size: 4})
+		this.points = new SandPoints(this.group!, this.camera!, {size: 4})
+		this.group!.rotateX(-0.25)
 	}
 	
-	private render(){
+	private render(time: number){
+		const delta = time- this.time
+		this.time = time
 		this.drawer?.onRender()
-		this.points?.onRender()
-		this.renderer!.render( this.scene!, this.camera! )
-		requestAnimationFrame(this.render)
+		this.points?.onRender(delta)
+		this.renderer!.render(this.scene!, this.camera!)
+		if(this.enabled){
+			requestAnimationFrame(this.render)
+		}
 	}
 
 	public destroy(){
+		this.enabled = false
 		if(this.drawer){
 			this.drawer.destroy()
+			this.drawer = undefined
 		}
 		if(this.points){
 			this.points.destroy()
+			this.points = undefined
 		}
 	}
 }
