@@ -88,7 +88,7 @@ export class SandDraw implements ISandDrawer{
 		let geometry: THREE.BufferGeometry = new THREE.PlaneGeometry(this.options.size, this.options.size, SEGMENTS, SEGMENTS)
 		geometry = mergeVertices(geometry);
 		(geometry.attributes.position as THREE.BufferAttribute).setUsage(THREE.DynamicDrawUsage);
-		(geometry.attributes.normal as THREE.BufferAttribute).setUsage(THREE.DynamicDrawUsage);
+		(geometry.attributes.normal as THREE.BufferAttribute).setUsage(THREE.DynamicDrawUsage)
 		//@ts-ignore
 		geometry.computeBoundsTree({
 			setBoundingBox: false
@@ -106,7 +106,7 @@ export class SandDraw implements ISandDrawer{
 			geometry,
 			material,
 		)
-		// create a color attribute
+		// create a color attribute so we can make the sand lower down look wet
 		const len = geometry.getAttribute('position').count
 		const colors = []
 		

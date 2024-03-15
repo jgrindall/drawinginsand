@@ -7,15 +7,14 @@ export interface ISandPoints{
 	destroy():void
 }
 
-const NUM_POINTS = 5000
-
-//just on top of the plane
-const Z_POSITION = 0.05
+const NUM_POINTS = 4000
 
 // useful for debugging
 const POINT_SIZE = 2
 
-// sandy color
+//just on top of the plane
+const Z_POSITION = 0.15
+
 const POINT_COLOR = {
 	r: 166,
 	g: 120,
@@ -30,6 +29,7 @@ export class SandPoints implements ISandPoints{
 	private brushActive:boolean = false
 	private raycaster: THREE.Raycaster = new THREE.Raycaster()
 	private pointsMesh: THREE.Points | undefined
+	private planeMesh: THREE.Mesh | undefined
 
 	constructor(private group: THREE.Group, private camera: THREE.PerspectiveCamera, private options:any){
 		this.onPointerDown = this.onPointerDown.bind(this)
@@ -56,7 +56,7 @@ export class SandPoints implements ISandPoints{
 	private updateMousePos(p: {x: number, y:number}){
 		this.mouse.set(p.x, p.y)
 		this.raycaster.setFromCamera(this.mouse, this.camera!)
-		const hit = this.raycaster.intersectObject(this.pointsMesh!, true )[0]
+		const hit = this.raycaster.intersectObject(this.planeMesh!, true )[0]
 		if(hit){
 			this.currentPos = hit.point
 		}
@@ -82,7 +82,21 @@ export class SandPoints implements ISandPoints{
 		window.removeEventListener('pointerup', this.onPointerUp)
 	}
 	private makeObjects(){		
-		const getPos = ()=>{
+		let geometry: THREE.BufferGeometry = new THREE.PlaneGeometry(this.options.size, this.options.size, 1, 1)
+		let material = new THREE.MeshPhongMaterial({
+			color:"pinK",
+			opacity: 0.1,
+			transparent: true
+		})
+		this.planeMesh = new THREE.Mesh(
+			geometry,
+			material,
+		)
+		this.planeMesh.position.z = 0
+		this.planeMesh.visible = false
+		this.group!.add(this.planeMesh)
+
+		const getRandomPositions = ()=>{
 			const x = rand(-this.options.size/2, this.options.size/2)
 			const y = rand(-this.options.size/2, this.options.size/2)
 			return {
@@ -97,10 +111,9 @@ export class SandPoints implements ISandPoints{
 		const accelerations:number[] = []
 		const hues:number[] = []
 		const scale:number[] = []
-        
 
 		for(let i = 0; i < NUM_POINTS; i++) {
-			const p = getPos()
+			const p = getRandomPositions()
 			initialPositions.push(p.x)
 			initialPositions.push(p.y)
 			initialPositions.push(p.z)
@@ -155,19 +168,12 @@ export class SandPoints implements ISandPoints{
         const accelAttr = this.pointsGeometry!.getAttribute("acceleration")
         const positions = posAttr.array
 		
-		const FRICTION = 0.75
-
         for(let i = 0; i < positions.length/3; i++){
 
 			// current position
             const x = posAttr.getX(i)
             const y = posAttr.getY(i)
 
-			// distance from the touch
-			const dx = x - this.currentPos.x
-            const dy = y - this.currentPos.y
-			const distFromMouse = Math.sqrt(dx*dx + dy*dy)
-			
 			// current velocity
 			const velX = velAttr.getX(i)
             const velY = velAttr.getY(i)
@@ -176,41 +182,57 @@ export class SandPoints implements ISandPoints{
 			const accelX = accelAttr.getX(i)
             const accelY = accelAttr.getY(i)
 
-			const FINGER_SIZE = 0.2
-			const FORCE = 50
+			// distance from the touch
+			const dx = x - this.currentPos.x
+            const dy = -(y - this.currentPos.y)
+
+			const distFromMouseSqr = dx*dx + dy*dy
+
+			const FINGER_SIZE_SQR = 0.2 * 0.2
+			const FORCE = 25
 
 			/**
 			 * update the acceleration of any particles near the mouse - they get pushed away
 			 * new acceleration default to 0
 			 */
 			
-			let newAccn = {
+			let newAcceleration = {
 				x:0,
 				y:0
 			}
-			if(distFromMouse < FINGER_SIZE){
+
+			if(distFromMouseSqr < FINGER_SIZE_SQR){
 				// normalize the acceleration
                 const accnNorm = {
-					x: dx/distFromMouse,
-					y: dy/distFromMouse
+					x: dx/distFromMouseSqr,
+					y: dy/distFromMouseSqr
 				}
-                const requiredLength = (1 - distFromMouse/FINGER_SIZE) * FORCE
-				newAccn.x = accnNorm.x * requiredLength
-				newAccn.y = -accnNorm.y * requiredLength
+				// the closer the particle is to the mouse, the stronger the force
+                const requiredLength = (1 - distFromMouseSqr/FINGER_SIZE_SQR) * FORCE
+				newAcceleration.x = accnNorm.x * requiredLength
+				newAcceleration.y = accnNorm.y * requiredLength
             }
-			accelAttr.setXYZ(i, newAccn.x, newAccn.y, 0)
+			
+			// simple Euler step size
 			const stepSize = delta/2000
-			// next, update the velocity (using the acceleration) and position
-			const newVel = {
+
+			// next, update the velocity (using the acceleration) and the position
+			const newVelocity = {
 				x: velX + accelX*stepSize,
 				y: velY + accelY*stepSize
 			}
-			// dampen it so they stop
-			velAttr.setXYZ(i, newVel.x*FRICTION, newVel.y*FRICTION, 0)
+
 			const newPosition = {
 				x: guard(x + velX*stepSize, -this.options.size/2, this.options.size/2),
 				y: guard(y + velY*stepSize, -this.options.size/2, this.options.size/2)
 			} 
+
+			accelAttr.setXYZ(i, newAcceleration.x, -newAcceleration.y, 0)
+
+			// dampen it so they stop
+			const FRICTION = 0.85
+			velAttr.setXYZ(i, newVelocity.x*FRICTION, newVelocity.y*FRICTION, 0)
+			
 			posAttr.setXYZ(i, newPosition.x, newPosition.y, Z_POSITION)
         }
 

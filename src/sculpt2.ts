@@ -37,7 +37,7 @@ class SandSculpt{
 		this.scene.add(new THREE.AmbientLight(0xffffff, 0.66))
 
 		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50)
-		this.camera.position.set(0, 0, 3)
+		this.camera.position.set(0, 0, 4)
 		this.camera.far = 100
 		this.camera.updateProjectionMatrix()
 
@@ -47,8 +47,8 @@ class SandSculpt{
 
 	private init(){
 		this.makeScene()
-		this.drawer = new SandDraw(this.group!, this.camera!, {size: 4})
-		this.points = new SandPoints(this.group!, this.camera!, {size: 4})
+		this.drawer = new SandDraw(this.group!, this.camera!, {size: 5})
+		this.points = new SandPoints(this.group!, this.camera!, {size: 5})
 		this.group!.rotateX(-0.25)
 	}
 	
