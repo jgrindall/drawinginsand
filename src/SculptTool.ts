@@ -9,8 +9,8 @@ import { rand, AccumFields } from './utils';
 
 const SAND_COLOR = {
 	r: 255,
-	g: 150,
-	b: 120
+	g: 250,
+	b: 255
 }
 
 export class SandSculptTool{

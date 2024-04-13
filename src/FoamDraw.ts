@@ -31,7 +31,7 @@ export interface ISandDrawer{
  * Use the mouse to draw indentations in sand
  * https://github.com/gkjohnson/three-mesh-bvh/blob/master/example/sculpt.js
  */
-export class SandDraw implements ISandDrawer{
+export class FoamDraw implements ISandDrawer{
 	
 	/**
 	 * The mesh you will draw on
@@ -153,13 +153,7 @@ export class SandDraw implements ISandDrawer{
 		const map = new THREE.TextureLoader().load('./map.jpg')
 		const bumpMap = new THREE.TextureLoader().load('./bump.png')
 		let material = new THREE.MeshStandardMaterial({
-			map,
-			bumpMap,
-			displacementMap: map,
-			displacementScale: 0.025,
-			bumpScale:2,
-			vertexColors: true, // so we can change the color
-			roughness: 100
+			color:0xffffff
 		})
 		this.targetMesh = new THREE.Mesh(
 			geometry,
@@ -299,7 +293,7 @@ export class SandDraw implements ISandDrawer{
 						// the model but it's faster to do them here.
 						this.updateNormals(changedTriangles, changedIndices)
 						//@ts-ignore
-						this.targetMesh!.geometry.boundsTree.refit(traversedNodeIndices)
+						//this.targetMesh!.geometry.boundsTree.refit(traversedNodeIndices)
 					} 
 					else {
 						this.tool!.perform(hit.point, true)
