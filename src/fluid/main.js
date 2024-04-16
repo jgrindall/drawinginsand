@@ -35,7 +35,7 @@ fs.resetDensity();
 const fdBuffer = context.createImageData(VIEW_SIZE, VIEW_SIZE);
 
 // Demo app variables
-let isMouseDown = false, oldMouseX = 0, oldMouseY = 0;
+let isMouseDown = false, oldMouseX = undefined, oldMouseY = undefined, oldI = undefined, oldJ = undefined
 
 // App options object for the gui
 const appOptions = {
@@ -58,14 +58,14 @@ context.strokeStyle = 'rgb(192, 0, 0)';   // Velocity field color
 context.imageSmoothingEnabled = true;
 
 //<editor-fold desc="Mouse and touch event listeners registration">
-document.addEventListener('mouseup', () => { isMouseDown = false; }, false);
+document.addEventListener('mouseup', () => { isMouseDown = false; oldMouseX = undefined; oldMouseY = undefined;oldI = undefined; oldJ = undefined;}, false);
 document.addEventListener('mousedown', () => { isMouseDown = true; }, false);
 
 // Mouse move listener (on the canvas element)
 canvas.addEventListener('mousemove', onMouseMove, false);
 
 
-let drawingVal = 0.5
+let drawingVal = 0.05
 
 /**
  * Main mouse move listener
@@ -89,40 +89,68 @@ function onMouseMove(e) {
 
     // Add the mouse velocity to cells above, below, to the left, and to the right.
 
-    const size = 5
+    let speed = Math.sqrt(du * du + dv * dv)
 
-  
+    const MIN_SPEED = 0
+    const MAX_SPEED = 16
+
+    speed = Math.max(MIN_SPEED, Math.min(speed, MAX_SPEED))
+
+    const speedFrac = speed/MAX_SPEED
+
+    // 0 -> MAX_SIZE  1 -> MIN_SIZE
+
+    const MIN_SIZE = 2
+    const MAX_SIZE = 3.5
+
+    const size = speedFrac * (MIN_SIZE - MAX_SIZE) + MAX_SIZE
 
     if (isMouseDown) {
         // If holding down the mouse, add density to the cell below the mouse
        
+        const velScale = 250
 
         for(let di = -size; di <= size; di++) {
             for(let dj = -size; dj <= size; dj++) {
-                fs.uOld[fs.I(i + di, j + dj)] = du;
-                fs.vOld[fs.I(i + di, j + dj)] = dv;
+                fs.uOld[fs.I(i + di, j + dj)] = du * velScale;
+                fs.vOld[fs.I(i + di, j + dj)] = dv * velScale;
             }
         }
     
-
-
         //todo - use du and dv to "push" the pixels in the direction of the mouse
         
-        
-        for(let di = -size; di <= size; di++) {
-            for(let dj = -size; dj <= size; dj++) {
-                //fs.dOld[fs.I(i + di, j + dj)] = drawingVal
-                //fs.d[fs.I(i + di, j + dj)] = drawingVal/2
+        // draw pixels under the mouse, 
+
+        const numSteps = 20
+
+        const fromI = oldI || i
+        const fromJ = oldJ || j
+
+
+        for(let n = 0; n <= numSteps; n++){
+            const t = n/numSteps
+            const iDraw = Math.floor(fromI * (1 - t) + i * t)
+            const jDraw = Math.floor(fromJ * (1 - t) + j * t)
+
+            for(let di = -size; di <= size; di++) {
+                for(let dj = -size; dj <= size; dj++) {
+                    if(di*di + dj*dj < size*size) {
+                        fs.dOld[fs.I(iDraw + di, jDraw + dj)] = drawingVal
+                        fs.d[fs.I(iDraw + di, jDraw + dj)] = drawingVal
+                    }
+                }
             }
+
         }
 
-
-        
     }
 
     // Save current mouse position for next frame
     oldMouseX = mouseX;
     oldMouseY = mouseY;
+
+    oldI = i
+    oldJ = j
 
 } // End onMouseMove()
 
@@ -154,7 +182,7 @@ function update(/*time*/) {
 
     clearImageData(fdBuffer);
  
-//   StackBlur.canvasRGBA(canvas2, 0, 0, VIEW_SIZE, VIEW_SIZE, 6);
+   //StackBlur.canvasRGBA(canvas2, 0, 0, VIEW_SIZE, VIEW_SIZE, 6);
 
 
 
@@ -263,7 +291,7 @@ let geometry = new THREE.PlaneGeometry(5, 5, 256, 256)
 let material = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     bumpMap: contentsTexture,
-    bumpScale: 25,
+    bumpScale: 75,
     //displacementMap: contentsTexture,
     //alphaMap: contentsTexture,
     transparent: true,

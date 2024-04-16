@@ -29,9 +29,12 @@ export class FluidSolver {
     constructor(n) {
         this.n = n;
 
-        this.dt = 0.02; // The simulation time-step
-        this.diffusion = 0.000001; // The amount of diffusion
-        this.viscosity = 10; // The fluid's viscosity
+        //0.0085
+
+
+        this.dt = 0.00025; // The simulation time-step
+        this.diffusion = 0.000000; // The amount of diffusion
+        this.viscosity = 100; // The fluid's viscosity
 
         // Number of iterations to use in the Gauss-Seidel method in linearSolve()
         this.iterations = 2;
@@ -95,10 +98,14 @@ export class FluidSolver {
         this.#swapD();
         this.#advect(FluidSolver.BOUNDARY_NONE, this.d, this.dOld, this.u, this.v);
 
+        this.sum()
+        
         // Reset for next step
         for (let i = 0; i < this.numOfCells; i++) {
             this.dOld[i] = initDValue;
         }
+
+
     }
 
     /**
@@ -237,6 +244,21 @@ export class FluidSolver {
         //this.dt * diffusion * this.n * this.n;
 
         this.#linearSolve(b, x, x0, a, 1 + 4 * a);
+    }
+
+    sum(){
+        let sum = 0
+        for (let i = 1; i <= this.n; i++) {
+            for (let j = 1; j <= this.n; j++) {
+                sum += this.d[this.I(i, j)]
+            }
+        }
+        const delta = sum / this.numOfCells
+        for (let i = 1; i <= this.n; i++) {
+            for (let j = 1; j <= this.n; j++) {
+                this.d[this.I(i, j)] -= delta
+            }
+        }
     }
 
     /**
