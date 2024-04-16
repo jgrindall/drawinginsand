@@ -151,7 +151,11 @@ export class FluidSolver {
         for (let i = 1; i <= this.n; i++) {
             for (let j = 1; j <= this.n; j++) {
                 const index = this.I(i, j)
-                this.d[index] = Math.sin(i / this.n * 12 * Math.PI) * Math.sin(j / this.n * 6 * Math.PI)
+                const ti = i / this.n
+                const tj = j / this.n
+                const s = (1 + Math.sin(ti * 5 * Math.PI))/2
+                const c = (1 + Math.cos(tj * 7 * Math.PI))/2
+                this.d[index] = s * c
             }
         }
 

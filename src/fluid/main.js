@@ -1,4 +1,3 @@
-alert(1)
 
 
 /**
@@ -288,10 +287,18 @@ scene.add( ambientLight )
 
 let geometry = new THREE.PlaneGeometry(5, 5, 256, 256)
 
+const t1 = new THREE.TextureLoader().load("/PlasterPlain001_Sphere.png")
+const t2 = new THREE.TextureLoader().load("/Snow004.png")
+const t3 = new THREE.TextureLoader().load("/istockphoto-1268215953-612x612.jpg")
+const t4 = new THREE.TextureLoader().load("/snow-pbr-material1-01.jpg")
+const t5 = new THREE.TextureLoader().load("/snow-pbr-material6-01.jpg")
+
+
 let material = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     bumpMap: contentsTexture,
-    bumpScale: 75,
+    bumpScale: 50,
+    map: t3,
     //displacementMap: contentsTexture,
     //alphaMap: contentsTexture,
     transparent: true,
