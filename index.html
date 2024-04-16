@@ -13,16 +13,17 @@
       }
       #canvas-container{
         position: absolute;
-        top:400px;
+        top:600px;
         left:0;
       }
-      #main-canvas, #main-canvas2{
-        transform: scale(3);
+      #main-canvas1, #main-canvas2, #main-canvas2, #main-canvas3, #main-canvas4{
+        transform: scale(0.75);
         transform-origin: top left;
       }
-      #main-canvas2{
-        margin-left:300px;
+      #main-canvas2, #main-canvas3, #main-canvas4{
+        margin-left:200px;
       }
+      
     </style>
 
   </head>
@@ -34,13 +35,16 @@
       </div>
 
     <div id="canvas-container">
-        <canvas id="main-canvas"></canvas>
+        <canvas id="main-canvas1"></canvas>
         <canvas id="main-canvas2"></canvas>
+        <canvas id="main-canvas3"></canvas>
+        <canvas id="main-canvas4"></canvas>
+        <canvas id="main-canvas5"></canvas>
     </div>
 
     <div id="three-canvas" width="800" height="600" style="position:fixed;right:0;top:0;">
     </div>
 
-    <script type="module" src="/src/fluid/main.js"></script>
+    <script type="module" src="/src/fluid/main2.js"></script>
   </body>
 </html>

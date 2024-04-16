@@ -12,7 +12,7 @@
 
 
 
-const initDValue = 0.0
+const initDensity = 0.0
 
 
 export class FluidSolver {
@@ -27,10 +27,10 @@ export class FluidSolver {
      * @constructor
      */
     constructor(n) {
-        this.n = n;
+        this.gridSize = n;
 
         this.dt = 0.23; // The simulation time-step
-        this.diffusion = 0.000001; // The amount of diffusion
+        this.diffusion = 0.000002; // The amount of diffusion
         this.viscosity = 10; // The fluid's viscosity
 
         // Number of iterations to use in the Gauss-Seidel method in linearSolve()
@@ -61,9 +61,9 @@ export class FluidSolver {
         // Initialize everything
 
         for (let i = 0; i < this.numOfCells; i++) {
-            this.d[i] = initDValue
+            this.d[i] = initDensity
             this.u[i] = this.v[i] = 0;
-            this.dOld[i] = initDValue
+            this.dOld[i] = initDensity
             this.uOld[i] = 0
             this.vOld[i] = 0;
             this.curlData[i] = 0;
@@ -79,8 +79,8 @@ export class FluidSolver {
      * @return {number}
      * @public
      */
-    I(i, j) {
-        return (i | i) + (this.n + 2) * (j | j);
+    getArrayIndex(i, j) {
+        return (i | i) + (this.gridSize + 2) * (j | j);
     }
 
     /**
@@ -97,7 +97,7 @@ export class FluidSolver {
 
         // Reset for next step
         for (let i = 0; i < this.numOfCells; i++) {
-            this.dOld[i] = initDValue;
+            this.dOld[i] = initDensity;
         }
     }
 
@@ -108,11 +108,11 @@ export class FluidSolver {
         this.#addSource(this.u, this.uOld);
         this.#addSource(this.v, this.vOld);
 
-        if (this.doVorticityConfinement) {
+        //if (this.doVorticityConfinement) {
             //this.#vorticityConfinement(this.uOld, this.vOld);
             //this.#addSource(this.u, this.uOld);
             //this.#addSource(this.v, this.vOld);
-        }
+        //}
 
         this.#swapU();
         this.#diffuse(FluidSolver.BOUNDARY_LEFT_RIGHT, this.u, this.uOld, this.viscosity);
@@ -135,12 +135,40 @@ export class FluidSolver {
         }
     }
 
+    resetDensityUsingCanvas(canvas){
+        //TODO - use the canas pixels
+        if(canvas){
+            const ctx = canvas.getContext('2d')
+            //const data = canvas.getImageData(0, 0, canvas.width, canvas.height).data
+        }
+        
+
+        for (let i = 0; i < this.numOfCells; i++) {
+            this.d[i] = 0
+        }
+
+        const W = 4
+
+        for (let i = 1; i <= this.gridSize; i++) {
+            for (let j = 1; j <= this.gridSize; j++) {
+                const index = this.getArrayIndex(i, j)
+                const p0 = (Math.sin(i/this.gridSize * Math.PI * 6) + W)/(W + 1)
+                const p1 = (Math.cos(j/this.gridSize * Math.PI * 6) + W)/(W + 1)
+                this.d[index] = p0 * p1
+            }
+        }
+
+        for (let i = 0; i < this.numOfCells; i++) {
+            //this.d[i] = Math.random();
+        }
+    }
+
     /**
      * Resets the density.
      */
     resetDensity() {
         for (let i = 0; i < this.numOfCells; i++) {
-            this.d[i] = initDValue;
+            this.d[i] = initDensity;
         }
     }
 
@@ -207,12 +235,14 @@ export class FluidSolver {
      * @return {Number}
      * @private
      */
+    /**
     #curl(i, j) {
         const duDy = (this.u[this.I(i, j + 1)] - this.u[this.I(i, j - 1)]) * 0.5,
             dvDx = (this.v[this.I(i + 1, j)] - this.v[this.I(i - 1, j)]) * 0.5;
 
         return duDy - dvDx;
     }
+    **/
     
     /**
      * Diffuse the density between neighbouring cells.
@@ -224,7 +254,7 @@ export class FluidSolver {
      * @private
      */
     #diffuse(b, x, x0, diffusion) {
-        const a = this.dt * diffusion * this.n * this.n;
+        const a = this.dt * diffusion * this.gridSize * this.gridSize;
 
         this.#linearSolve(b, x, x0, a, 1 + 4 * a);
     }
@@ -242,20 +272,20 @@ export class FluidSolver {
      * @private
      */
     #advect(b, d, d0, u, v) {
-        const dt0 = this.dt * this.n;
-        for (let i = 1; i <= this.n; i++) {
-            for (let j = 1; j <= this.n; j++) {
-                let x = i - dt0 * u[this.I(i, j)];
-                let y = j - dt0 * v[this.I(i, j)];
+        const dt0 = this.dt * this.gridSize;
+        for (let i = 1; i <= this.gridSize; i++) {
+            for (let j = 1; j <= this.gridSize; j++) {
+                let x = i - dt0 * u[this.getArrayIndex(i, j)];
+                let y = j - dt0 * v[this.getArrayIndex(i, j)];
 
                 if (x < 0.5) x = 0.5;
-                if (x > this.n + 0.5) x = this.n + 0.5;
+                if (x > this.gridSize + 0.5) x = this.gridSize + 0.5;
 
                 const i0 = (x | x);
                 const i1 = i0 + 1;
 
                 if (y < 0.5) y = 0.5;
-                if (y > this.n + 0.5) y = this.n + 0.5;
+                if (y > this.gridSize + 0.5) y = this.gridSize + 0.5;
 
                 const j0 = (y | y);
                 const j1 = j0 + 1;
@@ -264,8 +294,8 @@ export class FluidSolver {
                 const t1 = y - j0;
                 const t0 = 1 - t1;
 
-                d[this.I(i, j)] = s0 * (t0 * d0[this.I(i0, j0)] + t1 * d0[this.I(i0, j1)]) +
-                    s1 * (t0 * d0[this.I(i1, j0)] + t1 * d0[this.I(i1, j1)]);
+                d[this.getArrayIndex(i, j)] = s0 * (t0 * d0[this.getArrayIndex(i0, j0)] + t1 * d0[this.getArrayIndex(i0, j1)]) +
+                    s1 * (t0 * d0[this.getArrayIndex(i1, j0)] + t1 * d0[this.getArrayIndex(i1, j1)]);
             }
         }
 
@@ -289,13 +319,13 @@ export class FluidSolver {
      */
     #project(u, v, p, div) {
         // Calculate the gradient field
-        const h = 1.0 / this.n;
-        for (let i = 1; i <= this.n; i++) {
-            for (let j = 1; j <= this.n; j++) {
-                div[this.I(i, j)] = -0.5 * h * (u[this.I(i + 1, j)] - u[this.I(i - 1, j)] +
-                    v[this.I(i, j + 1)] - v[this.I(i, j - 1)]);
+        const h = 1.0 / this.gridSize;
+        for (let i = 1; i <= this.gridSize; i++) {
+            for (let j = 1; j <= this.gridSize; j++) {
+                div[this.getArrayIndex(i, j)] = -0.5 * h * (u[this.getArrayIndex(i + 1, j)] - u[this.getArrayIndex(i - 1, j)] +
+                    v[this.getArrayIndex(i, j + 1)] - v[this.getArrayIndex(i, j - 1)]);
 
-                p[this.I(i, j)] = 0;
+                p[this.getArrayIndex(i, j)] = 0;
             }
         }
 
@@ -306,10 +336,10 @@ export class FluidSolver {
         this.#linearSolve(FluidSolver.BOUNDARY_NONE, p, div, 1, 4);
 
         // Subtract the gradient field from the velocity field to get a mass conserving velocity field.
-        for (let i = 1; i <= this.n; i++) {
-            for (let j = 1; j <= this.n; j++) {
-                u[this.I(i, j)] -= 0.5 * (p[this.I(i + 1, j)] - p[this.I(i - 1, j)]) / h;
-                v[this.I(i, j)] -= 0.5 * (p[this.I(i, j + 1)] - p[this.I(i, j - 1)]) / h;
+        for (let i = 1; i <= this.gridSize; i++) {
+            for (let j = 1; j <= this.gridSize; j++) {
+                u[this.getArrayIndex(i, j)] -= 0.5 * (p[this.getArrayIndex(i + 1, j)] - p[this.getArrayIndex(i - 1, j)]) / h;
+                v[this.getArrayIndex(i, j)] -= 0.5 * (p[this.getArrayIndex(i, j + 1)] - p[this.getArrayIndex(i, j - 1)]) / h;
             }
         }
 
@@ -331,10 +361,10 @@ export class FluidSolver {
         const invC = 1.0 / c;
 
         for (let k = 0; k < this.iterations; k++) {
-            for (let i = 1; i <= this.n; i++) {
-                for (let j = 1; j <= this.n; j++) {
-                    x[this.I(i, j)] = (x0[this.I(i, j)] + a * (x[this.I(i - 1, j)] + x[this.I(i + 1, j)] +
-                        x[this.I(i, j - 1)] + x[this.I(i, j + 1)])) * invC;
+            for (let i = 1; i <= this.gridSize; i++) {
+                for (let j = 1; j <= this.gridSize; j++) {
+                    x[this.getArrayIndex(i, j)] = (x0[this.getArrayIndex(i, j)] + a * (x[this.getArrayIndex(i - 1, j)] + x[this.getArrayIndex(i + 1, j)] +
+                        x[this.getArrayIndex(i, j - 1)] + x[this.getArrayIndex(i, j + 1)])) * invC;
                 }
             }
 
@@ -350,23 +380,23 @@ export class FluidSolver {
      * @private
      */
     #setBoundary(b, x) {
-        for (let i = 1; i <= this.n; i++) {
-            x[this.I(0, i)] = (b === FluidSolver.BOUNDARY_LEFT_RIGHT) ?
-                -x[this.I(1, i)] : x[this.I(1, i)];
+        for (let i = 1; i <= this.gridSize; i++) {
+            x[this.getArrayIndex(0, i)] = (b === FluidSolver.BOUNDARY_LEFT_RIGHT) ?
+                -x[this.getArrayIndex(1, i)] : x[this.getArrayIndex(1, i)];
 
-            x[this.I(this.n + 1, i)] = (b === FluidSolver.BOUNDARY_LEFT_RIGHT) ?
-                -x[this.I(this.n, i)] : x[this.I(this.n, i)];
+            x[this.getArrayIndex(this.gridSize + 1, i)] = (b === FluidSolver.BOUNDARY_LEFT_RIGHT) ?
+                -x[this.getArrayIndex(this.gridSize, i)] : x[this.getArrayIndex(this.gridSize, i)];
 
-            x[this.I(i, 0)] = (b === FluidSolver.BOUNDARY_TOP_BOTTOM) ?
-                -x[this.I(i, 1)] : x[this.I(i, 1)];
+            x[this.getArrayIndex(i, 0)] = (b === FluidSolver.BOUNDARY_TOP_BOTTOM) ?
+                -x[this.getArrayIndex(i, 1)] : x[this.getArrayIndex(i, 1)];
 
-            x[this.I(i, this.n + 1)] = (b === FluidSolver.BOUNDARY_TOP_BOTTOM) ?
-                -x[this.I(i, this.n)] : x[this.I(i, this.n)];
+            x[this.getArrayIndex(i, this.gridSize + 1)] = (b === FluidSolver.BOUNDARY_TOP_BOTTOM) ?
+                -x[this.getArrayIndex(i, this.gridSize)] : x[this.getArrayIndex(i, this.gridSize)];
         }
 
-        x[this.I(0, 0)] = 0.5 * (x[this.I(1, 0)] + x[this.I(0, 1)]);
-        x[this.I(0, this.n + 1)] = 0.5 * (x[this.I(1, this.n + 1)] + x[this.I(0, this.n)]);
-        x[this.I(this.n + 1, 0)] = 0.5 * (x[this.I(this.n, 0)] + x[this.I(this.n + 1, 1)]);
-        x[this.I(this.n + 1, this.n + 1)] = 0.5 * (x[this.I(this.n, this.n + 1)] + x[this.I(this.n + 1, this.n)]);
+        x[this.getArrayIndex(0, 0)] = 0.5 * (x[this.getArrayIndex(1, 0)] + x[this.getArrayIndex(0, 1)]);
+        x[this.getArrayIndex(0, this.gridSize + 1)] = 0.5 * (x[this.getArrayIndex(1, this.gridSize + 1)] + x[this.getArrayIndex(0, this.gridSize)]);
+        x[this.getArrayIndex(this.gridSize + 1, 0)] = 0.5 * (x[this.getArrayIndex(this.gridSize, 0)] + x[this.getArrayIndex(this.gridSize + 1, 1)]);
+        x[this.getArrayIndex(this.gridSize + 1, this.gridSize + 1)] = 0.5 * (x[this.getArrayIndex(this.gridSize, this.gridSize + 1)] + x[this.getArrayIndex(this.gridSize + 1, this.gridSize)]);
     }
 }
