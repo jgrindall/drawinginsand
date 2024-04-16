@@ -13,7 +13,7 @@ export class AppGUI {
     }
 
     init() {
-        this.#gui.add(this.#fluidSolver, 'dt', 0.0, 0.5).step(0.001).name('Time Step');
+        this.#gui.add(this.#fluidSolver, 'dt', 0.0, 0.5).step(0.00001).name('Time Step');
         this.#gui.add(this.#fluidSolver, 'iterations', 1, 10).step(1).name('Solver Iterations');
         this.#gui.add(this.#fluidSolver, 'diffusion', 0.0, 0.001).step(0.00001).name('Diffusion');
 

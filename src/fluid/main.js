@@ -29,20 +29,18 @@ const canvas = document.getElementById('main-canvas'),
 // Create the fluid solver
 const fs = new FluidSolver(NUM_OF_CELLS);
 fs.resetVelocity();
+fs.resetDensity();
 
 // We draw the density on a bitmap for performance reasons
 const fdBuffer = context.createImageData(VIEW_SIZE, VIEW_SIZE);
 
 // Demo app variables
-let isMouseDown = false,
-    oldMouseX = 0,
-    oldMouseY = 0;
-
+let isMouseDown = false, oldMouseX = 0, oldMouseY = 0;
 
 // App options object for the gui
 const appOptions = {
     fluidSolver: fs,
-    grayscale: false
+    grayscale: true
 };
 
 // Set up the gui
@@ -68,12 +66,6 @@ canvas.addEventListener('mousemove', onMouseMove, false);
 
 
 let drawingVal = 0.5
-
-
-setTimeout(() => {
-    alert("0")
-    drawingVal = 0.01
-}, 5000)
 
 /**
  * Main mouse move listener
@@ -119,8 +111,8 @@ function onMouseMove(e) {
         
         for(let di = -size; di <= size; di++) {
             for(let dj = -size; dj <= size; dj++) {
-                fs.dOld[fs.I(i + di, j + dj)] = drawingVal
-                fs.d[fs.I(i + di, j + dj)] = drawingVal/2
+                //fs.dOld[fs.I(i + di, j + dj)] = drawingVal
+                //fs.d[fs.I(i + di, j + dj)] = drawingVal/2
             }
         }
 
@@ -159,21 +151,10 @@ function update(/*time*/) {
     context2.putImageData(fdBuffer, 0, 0);
 
 
-    var imgData = context2.getImageData(0, 0, VIEW_SIZE, VIEW_SIZE);
-        // invert colors
-    var i;
-    for (i = 0; i < imgData.data.length; i += 4) {
-        imgData.data[i] = 255 - imgData.data[i];
-        imgData.data[i+1] = 255 - imgData.data[i+1];
-        imgData.data[i+2] = 255 - imgData.data[i+2];
-        imgData.data[i+3] = imgData.data[i+3];
-    }
-    context2.putImageData(imgData, 0, 0);
-    
 
     clearImageData(fdBuffer);
  
-   StackBlur.canvasRGBA(canvas2, 0, 0, VIEW_SIZE, VIEW_SIZE, 6);
+//   StackBlur.canvasRGBA(canvas2, 0, 0, VIEW_SIZE, VIEW_SIZE, 6);
 
 
 

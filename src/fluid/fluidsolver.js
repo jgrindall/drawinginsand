@@ -29,7 +29,7 @@ export class FluidSolver {
     constructor(n) {
         this.n = n;
 
-        this.dt = 0.23; // The simulation time-step
+        this.dt = 0.02; // The simulation time-step
         this.diffusion = 0.000001; // The amount of diffusion
         this.viscosity = 10; // The fluid's viscosity
 
@@ -139,8 +139,17 @@ export class FluidSolver {
      * Resets the density.
      */
     resetDensity() {
+
+
+        for (let i = 1; i <= this.n; i++) {
+            for (let j = 1; j <= this.n; j++) {
+                const index = this.I(i, j)
+                this.d[index] = Math.sin(i / this.n * 12 * Math.PI) * Math.sin(j / this.n * 6 * Math.PI)
+            }
+        }
+
         for (let i = 0; i < this.numOfCells; i++) {
-            this.d[i] = initDValue;
+            //this.d[i] = initDValue;
         }
     }
 
@@ -224,7 +233,8 @@ export class FluidSolver {
      * @private
      */
     #diffuse(b, x, x0, diffusion) {
-        const a = this.dt * diffusion * this.n * this.n;
+        const a = 0
+        //this.dt * diffusion * this.n * this.n;
 
         this.#linearSolve(b, x, x0, a, 1 + 4 * a);
     }
