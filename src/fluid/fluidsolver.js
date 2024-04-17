@@ -12,7 +12,7 @@
 
 
 
-const initDValue = 0.0
+const initDValue = 0.9
 
 
 export class FluidSolver {
@@ -32,7 +32,7 @@ export class FluidSolver {
         //0.0085
 
 
-        this.dt = 0.00025; // The simulation time-step
+        this.dt = 0.00001; // The simulation time-step
         this.diffusion = 0.000000; // The amount of diffusion
         this.viscosity = 100; // The fluid's viscosity
 
@@ -142,12 +142,49 @@ export class FluidSolver {
         }
     }
 
+    resetDensityUsing(canvas){
+        
+        return
+
+        const context = canvas.getContext('2d')
+        const data = context.getImageData(0, 0, canvas.width, canvas.height).data
+
+        console.log(data.length, this.n)
+
+        
+
+        for (let i = 1; i <= this.n; i++) {
+            for (let j = 1; j <= this.n; j++) {
+
+                let index = i + (this.n + 2) * j
+
+                //console.log(index)
+
+
+                const r = data[index] / 255
+                const g = data[index + 1] / 255
+                const b = data[index + 2] / 255
+                const d = (r + g + b) / 3
+                
+                if( i <= 150 || j <= 150){
+                    this.dOld[index] = r
+                    this.d[index] = r
+                }
+
+                else{
+
+                    this.dOld[index] = 0
+                    this.d[index] = 0
+                }
+                
+            }
+        }
+    }
+
     /**
      * Resets the density.
      */
     resetDensity() {
-
-
         for (let i = 1; i <= this.n; i++) {
             for (let j = 1; j <= this.n; j++) {
                 const index = this.I(i, j)
@@ -160,7 +197,7 @@ export class FluidSolver {
         }
 
         for (let i = 0; i < this.numOfCells; i++) {
-            //this.d[i] = initDValue;
+            this.d[i] = initDValue;
         }
     }
 

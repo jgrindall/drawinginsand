@@ -11,14 +11,32 @@ import { AppGUI } from './gui.js';
 import * as THREE from 'three';
 import * as StackBlur from 'stackblur-canvas';
 
-const NUM_OF_CELLS = 128
+const NUM_OF_CELLS = 256
     
-const VIEW_SIZE = 128
+const VIEW_SIZE = 256
 
 const CELL_SIZE = VIEW_SIZE / NUM_OF_CELLS;
 
 const CELL_SIZE_CEIL = Math.ceil(CELL_SIZE); // Size of each cell in pixels (ceiling)
 
+const img = new Image()
+
+img.onload = ()=>{
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+    canvas.width = VIEW_SIZE
+    canvas.height = VIEW_SIZE
+    context.drawImage(img, 0, 0, img.width, img.height, 0, 0, VIEW_SIZE, VIEW_SIZE)
+    $(canvas).css({
+        position: "fixed",
+        top:0,
+        left: "500px"
+    })
+    document.body.appendChild(canvas)
+    //fs.resetDensityUsing(canvas)
+}
+
+img.src = "/img1.jpg"
 
 const canvas = document.getElementById('main-canvas'),
     context = canvas.getContext('2d');
@@ -99,18 +117,20 @@ function onMouseMove(e) {
 
     // 0 -> MAX_SIZE  1 -> MIN_SIZE
 
-    const MIN_SIZE = 2
-    const MAX_SIZE = 3.5
+    const MIN_SIZE = NUM_OF_CELLS / 50
+    const MAX_SIZE = NUM_OF_CELLS / 25
 
     const size = speedFrac * (MIN_SIZE - MAX_SIZE) + MAX_SIZE
 
     if (isMouseDown) {
         // If holding down the mouse, add density to the cell below the mouse
        
-        const velScale = 250
+        const velScale = 10000
 
-        for(let di = -size; di <= size; di++) {
-            for(let dj = -size; dj <= size; dj++) {
+        const velSize = size*2
+
+        for(let di = -velSize; di <= velSize; di++) {
+            for(let dj = -velSize; dj <= velSize; dj++) {
                 fs.uOld[fs.I(i + di, j + dj)] = du * velScale;
                 fs.vOld[fs.I(i + di, j + dj)] = dv * velScale;
             }
@@ -133,7 +153,14 @@ function onMouseMove(e) {
 
             for(let di = -size; di <= size; di++) {
                 for(let dj = -size; dj <= size; dj++) {
-                    if(di*di + dj*dj < size*size) {
+                    const r = (di*di + dj*dj) / (size*size)
+                    if(r < 0.2) {
+                        const drawingVal = 0.1
+                        fs.dOld[fs.I(iDraw + di, jDraw + dj)] = drawingVal
+                        fs.d[fs.I(iDraw + di, jDraw + dj)] = drawingVal
+                    }
+                    else if(r < 1) {
+                        const drawingVal = 0.15
                         fs.dOld[fs.I(iDraw + di, jDraw + dj)] = drawingVal
                         fs.d[fs.I(iDraw + di, jDraw + dj)] = drawingVal
                     }
@@ -181,7 +208,7 @@ function update(/*time*/) {
 
     clearImageData(fdBuffer);
  
-   //StackBlur.canvasRGBA(canvas2, 0, 0, VIEW_SIZE, VIEW_SIZE, 6);
+   //StackBlur.canvasRGBA(canvas2, 0, 0, VIEW_SIZE, VIEW_SIZE, 1);
 
 
 
@@ -198,7 +225,12 @@ function update(/*time*/) {
 
             // Draw density
             const density = fs.d[cellIndex];
-            if (density > 0) {
+
+
+            //console.log(density)
+
+
+            if (density >= 0) {
                 const color = density * 255;
 
 
@@ -294,10 +326,12 @@ const t4 = new THREE.TextureLoader().load("/snow-pbr-material1-01.jpg")
 const t5 = new THREE.TextureLoader().load("/snow-pbr-material6-01.jpg")
 
 
+
+
 let material = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     bumpMap: contentsTexture,
-    bumpScale: 50,
+    bumpScale: 30,
     map: t3,
     //displacementMap: contentsTexture,
     //alphaMap: contentsTexture,
