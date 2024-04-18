@@ -18,12 +18,10 @@
         top:400px;
         left:0;
       }
-      #main-canvas, #main-canvas2{
-        transform: scale(1.5);
+      canvas.scale{
+        transform: scale(1);
         transform-origin: top left;
-      }
-      #main-canvas2{
-        margin-left:300px;
+        margin-left:150px;
       }
     </style>
 
@@ -36,8 +34,9 @@
       </div>
 
     <div id="canvas-container">
-        <canvas id="main-canvas"></canvas>
-        <canvas id="main-canvas2"></canvas>
+        <canvas id="main-canvas" class="scale"></canvas>
+        <canvas id="main-canvas2" class="scale"></canvas>
+        <canvas id="main-canvas3" class="scale"></canvas>
     </div>
 
     <div id="three-canvas" width="800" height="600" style="position:fixed;right:0;top:0;">

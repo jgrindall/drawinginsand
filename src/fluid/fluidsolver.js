@@ -11,10 +11,9 @@
  */
 
 
+import {Noise} from 'noisejs'
 
-const initDValue = 0.9
-
-
+var noise = new Noise(Math.random())
 export class FluidSolver {
 
     // Boundaries enumeration.
@@ -23,16 +22,22 @@ export class FluidSolver {
     static BOUNDARY_TOP_BOTTOM = 2;
 
     /**
-     * @param n {Number} Number of fluid cells for the simulation grid in each dimension (NxN)
+     * @param size {Number} Number of fluid cells for the simulation grid in each dimension (NxN)
      * @constructor
      */
-    constructor(n) {
-        this.n = n;
+    constructor(size, originalDensities) {
+        this.size = size;
+
+        this.originalSum = 0
+
+        this.originalDensities = originalDensities
+
+        this.oData = this.originalDensities.getContext("2d").getImageData(0, 0, this.size, this.size).data
 
         //0.0085
 
 
-        this.dt = 0.00001; // The simulation time-step
+        this.dt = 0.00005; // The simulation time-step
         this.diffusion = 0.000000; // The amount of diffusion
         this.viscosity = 100; // The fluid's viscosity
 
@@ -42,7 +47,7 @@ export class FluidSolver {
         this.doVorticityConfinement = true;
 
         // Two extra cells in each dimension for the boundaries
-        this.numOfCells = (n + 2) * (n + 2);
+        this.numOfCells = (this.size + 2) * (this.size + 2);
 
         this.tmp = null; // Scratch space for references swapping
 
@@ -63,14 +68,39 @@ export class FluidSolver {
 
         // Initialize everything
 
+        this.originalSum = 0
+
         for (let i = 0; i < this.numOfCells; i++) {
-            this.d[i] = initDValue
+            const density = this.getInitDValue(i)
+            this.d[i] = density
             this.u[i] = this.v[i] = 0;
-            this.dOld[i] = initDValue
+            this.dOld[i] = density
             this.uOld[i] = 0
             this.vOld[i] = 0;
             this.curlData[i] = 0;
+            this.originalSum += density
         }
+    }
+
+    getInitDValue(i){
+        // note: i goes from 0 to (n + 2) * (n + 2)
+        let ix = Math.floor(i / (this.size + 2))
+        let iy = i - ix*(this.size + 2)
+        if(ix == 0 || ix == this.size + 1 || iy == 0 || iy == this.size + 1){
+            //TODO or 1?
+            return 0
+        }
+        ix -= 1
+        iy -= 1
+        let index = ix * this.size + iy
+        index *= 4
+        const r = this.oData[index]
+        const g = this.oData[index + 1] 
+        const b = this.oData[index + 2]
+        const a = this.oData[index + 3]
+        const avg = (r + g + b) / 3
+        const value = avg * (a / 255)/ 255
+        return 1 -  value
     }
 
     /**
@@ -83,7 +113,7 @@ export class FluidSolver {
      * @public
      */
     I(i, j) {
-        return (i | i) + (this.n + 2) * (j | j);
+        return (i | i) + (this.size + 2) * (j | j);
     }
 
     /**
@@ -102,7 +132,7 @@ export class FluidSolver {
         
         // Reset for next step
         for (let i = 0; i < this.numOfCells; i++) {
-            this.dOld[i] = initDValue;
+            this.dOld[i] = this.getInitDValue(i);
         }
 
 
@@ -149,14 +179,14 @@ export class FluidSolver {
         const context = canvas.getContext('2d')
         const data = context.getImageData(0, 0, canvas.width, canvas.height).data
 
-        console.log(data.length, this.n)
+        console.log(data.length, this.size)
 
         
 
-        for (let i = 1; i <= this.n; i++) {
-            for (let j = 1; j <= this.n; j++) {
+        for (let i = 1; i <= this.size; i++) {
+            for (let j = 1; j <= this.size; j++) {
 
-                let index = i + (this.n + 2) * j
+                let index = i + (this.size + 2) * j
 
                 //console.log(index)
 
@@ -185,19 +215,21 @@ export class FluidSolver {
      * Resets the density.
      */
     resetDensity() {
-        for (let i = 1; i <= this.n; i++) {
-            for (let j = 1; j <= this.n; j++) {
+        /**
+        for (let i = 1; i <= this.size; i++) {
+            for (let j = 1; j <= this.size; j++) {
                 const index = this.I(i, j)
-                const ti = i / this.n
-                const tj = j / this.n
+                const ti = i / this.size
+                const tj = j / this.size
                 const s = (1 + Math.sin(ti * 5 * Math.PI))/2
                 const c = (1 + Math.cos(tj * 7 * Math.PI))/2
                 this.d[index] = s * c
             }
         }
+        **/
 
         for (let i = 0; i < this.numOfCells; i++) {
-            this.d[i] = initDValue;
+            this.d[i] = this.getInitDValue(i);
         }
     }
 
@@ -288,15 +320,15 @@ export class FluidSolver {
     }
 
     sum(){
-        let sum = 0
-        for (let i = 1; i <= this.n; i++) {
-            for (let j = 1; j <= this.n; j++) {
-                sum += this.d[this.I(i, j)]
+        let currentSum = 0
+        for (let i = 1; i <= this.size; i++) {
+            for (let j = 1; j <= this.size; j++) {
+                currentSum += this.d[this.I(i, j)]
             }
         }
-        const delta = sum / this.numOfCells
-        for (let i = 1; i <= this.n; i++) {
-            for (let j = 1; j <= this.n; j++) {
+        const delta = (currentSum - this.originalSum)/ this.numOfCells
+        for (let i = 1; i <= this.size; i++) {
+            for (let j = 1; j <= this.size; j++) {
                 this.d[this.I(i, j)] -= delta
             }
         }
@@ -315,20 +347,20 @@ export class FluidSolver {
      * @private
      */
     #advect(b, d, d0, u, v) {
-        const dt0 = this.dt * this.n;
-        for (let i = 1; i <= this.n; i++) {
-            for (let j = 1; j <= this.n; j++) {
+        const dt0 = this.dt * this.size;
+        for (let i = 1; i <= this.size; i++) {
+            for (let j = 1; j <= this.size; j++) {
                 let x = i - dt0 * u[this.I(i, j)];
                 let y = j - dt0 * v[this.I(i, j)];
 
                 if (x < 0.5) x = 0.5;
-                if (x > this.n + 0.5) x = this.n + 0.5;
+                if (x > this.size + 0.5) x = this.size + 0.5;
 
                 const i0 = (x | x);
                 const i1 = i0 + 1;
 
                 if (y < 0.5) y = 0.5;
-                if (y > this.n + 0.5) y = this.n + 0.5;
+                if (y > this.size + 0.5) y = this.size + 0.5;
 
                 const j0 = (y | y);
                 const j1 = j0 + 1;
@@ -362,9 +394,9 @@ export class FluidSolver {
      */
     #project(u, v, p, div) {
         // Calculate the gradient field
-        const h = 1.0 / this.n;
-        for (let i = 1; i <= this.n; i++) {
-            for (let j = 1; j <= this.n; j++) {
+        const h = 1.0 / this.size;
+        for (let i = 1; i <= this.size; i++) {
+            for (let j = 1; j <= this.size; j++) {
                 div[this.I(i, j)] = -0.5 * h * (u[this.I(i + 1, j)] - u[this.I(i - 1, j)] +
                     v[this.I(i, j + 1)] - v[this.I(i, j - 1)]);
 
@@ -379,8 +411,8 @@ export class FluidSolver {
         this.#linearSolve(FluidSolver.BOUNDARY_NONE, p, div, 1, 4);
 
         // Subtract the gradient field from the velocity field to get a mass conserving velocity field.
-        for (let i = 1; i <= this.n; i++) {
-            for (let j = 1; j <= this.n; j++) {
+        for (let i = 1; i <= this.size; i++) {
+            for (let j = 1; j <= this.size; j++) {
                 u[this.I(i, j)] -= 0.5 * (p[this.I(i + 1, j)] - p[this.I(i - 1, j)]) / h;
                 v[this.I(i, j)] -= 0.5 * (p[this.I(i, j + 1)] - p[this.I(i, j - 1)]) / h;
             }
@@ -404,8 +436,8 @@ export class FluidSolver {
         const invC = 1.0 / c;
 
         for (let k = 0; k < this.iterations; k++) {
-            for (let i = 1; i <= this.n; i++) {
-                for (let j = 1; j <= this.n; j++) {
+            for (let i = 1; i <= this.size; i++) {
+                for (let j = 1; j <= this.size; j++) {
                     x[this.I(i, j)] = (x0[this.I(i, j)] + a * (x[this.I(i - 1, j)] + x[this.I(i + 1, j)] +
                         x[this.I(i, j - 1)] + x[this.I(i, j + 1)])) * invC;
                 }
@@ -423,23 +455,23 @@ export class FluidSolver {
      * @private
      */
     #setBoundary(b, x) {
-        for (let i = 1; i <= this.n; i++) {
+        for (let i = 1; i <= this.size; i++) {
             x[this.I(0, i)] = (b === FluidSolver.BOUNDARY_LEFT_RIGHT) ?
                 -x[this.I(1, i)] : x[this.I(1, i)];
 
-            x[this.I(this.n + 1, i)] = (b === FluidSolver.BOUNDARY_LEFT_RIGHT) ?
-                -x[this.I(this.n, i)] : x[this.I(this.n, i)];
+            x[this.I(this.size + 1, i)] = (b === FluidSolver.BOUNDARY_LEFT_RIGHT) ?
+                -x[this.I(this.size, i)] : x[this.I(this.size, i)];
 
             x[this.I(i, 0)] = (b === FluidSolver.BOUNDARY_TOP_BOTTOM) ?
                 -x[this.I(i, 1)] : x[this.I(i, 1)];
 
-            x[this.I(i, this.n + 1)] = (b === FluidSolver.BOUNDARY_TOP_BOTTOM) ?
-                -x[this.I(i, this.n)] : x[this.I(i, this.n)];
+            x[this.I(i, this.size + 1)] = (b === FluidSolver.BOUNDARY_TOP_BOTTOM) ?
+                -x[this.I(i, this.size)] : x[this.I(i, this.size)];
         }
 
         x[this.I(0, 0)] = 0.5 * (x[this.I(1, 0)] + x[this.I(0, 1)]);
-        x[this.I(0, this.n + 1)] = 0.5 * (x[this.I(1, this.n + 1)] + x[this.I(0, this.n)]);
-        x[this.I(this.n + 1, 0)] = 0.5 * (x[this.I(this.n, 0)] + x[this.I(this.n + 1, 1)]);
-        x[this.I(this.n + 1, this.n + 1)] = 0.5 * (x[this.I(this.n, this.n + 1)] + x[this.I(this.n + 1, this.n)]);
+        x[this.I(0, this.size + 1)] = 0.5 * (x[this.I(1, this.size + 1)] + x[this.I(0, this.size)]);
+        x[this.I(this.size + 1, 0)] = 0.5 * (x[this.I(this.size, 0)] + x[this.I(this.size + 1, 1)]);
+        x[this.I(this.size + 1, this.size + 1)] = 0.5 * (x[this.I(this.size, this.size + 1)] + x[this.I(this.size + 1, this.size)]);
     }
 }
