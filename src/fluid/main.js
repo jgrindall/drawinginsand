@@ -1,27 +1,19 @@
 
-
-/**
- * Demo usage of the FluidSolver class.
- *
- * @author Topaz Bar <topaz1008@gmail.com>
- */
-import { GUI } from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17/+esm';
-import { FluidSolver } from './fluidsolver.js';
-import { AppGUI } from './gui.js';
 import * as THREE from 'three';
+import { FluidSolver } from './fluidsolver.js';
 
-const SIZE = 256
 
-const canvas = document.getElementById('main-canvas');
-const context = canvas.getContext('2d');
-const canvas2 = document.getElementById('main-canvas2');
-const context2 = canvas2.getContext('2d');
-const canvas3 = document.getElementById('main-canvas3');
-const context3 = canvas3.getContext('2d');
+const SIZE = 64
 
-canvas.width = canvas.height = SIZE;
-canvas2.width = canvas2.height = SIZE; 
-canvas3.width = canvas3.height = SIZE; 
+const canvas = document.getElementById('main-canvas')
+const context = canvas.getContext('2d')
+const canvas2 = document.getElementById('main-canvas2')
+const canvas3 = document.getElementById('main-canvas3')
+const context3 = canvas3.getContext('2d')
+
+canvas.width = canvas.height = SIZE
+canvas2.width = canvas2.height = SIZE
+canvas3.width = canvas3.height = SIZE
 
 const img = new Image()
 const imgCanvas = document.createElement('canvas')
@@ -31,12 +23,6 @@ const imgContext = imgCanvas.getContext('2d')
 
 img.onload = ()=>{
     imgContext.drawImage(img, 0, 0, SIZE, SIZE)
-    $(imgCanvas).css({
-        position: "fixed",
-        top:0,
-        left: "500px"
-    }).addClass("scale")
-    document.body.appendChild(imgCanvas)
     init()
 }
 img.src = "/paint.png"
@@ -44,27 +30,22 @@ img.src = "/paint.png"
 const brush = new Image()
 brush.src = "/brush3.png"
 
-let fs, appOptions, gui;
+let fs, appOptions;
 
 const init = ()=>{
-    fs = new FluidSolver(SIZE, imgCanvas);
-    fs.resetVelocity();
-    fs.resetDensity();
+    fs = new FluidSolver(SIZE, imgCanvas)
+    fs.resetVelocity()
+    fs.resetDensity()
 
     appOptions = {
         fluidSolver: fs,
         grayscale: true
     }
-    
-    gui = new AppGUI(GUI, { width: 400, autoPlace: false }, appOptions);
-    gui.init();
-    
-    update();
-    
+    update()
 }
 
 // We draw the density on a bitmap for performance reasons
-const fdBuffer = context.createImageData(SIZE, SIZE);
+const fdBuffer = context.createImageData(SIZE, SIZE)
 
 // Demo app variables
 let isMouseDown = false, oldMouseX = undefined, oldMouseY = undefined, oldI = undefined, oldJ = undefined
@@ -72,24 +53,34 @@ let isMouseDown = false, oldMouseX = undefined, oldMouseY = undefined, oldI = un
 context3.fillStyle = "#ffffff"
 context3.fillRect(0, 0, SIZE, SIZE)
 
-document.addEventListener('mouseup', () => { isMouseDown = false; oldMouseX = undefined; oldMouseY = undefined;oldI = undefined; oldJ = undefined;}, false);
-document.addEventListener('mousedown', () => { isMouseDown = true; }, false);
-canvas.addEventListener('mousemove', onMouseMove, false);
+document.addEventListener('mouseup', () => {
+        isMouseDown = false;
+        oldMouseX = undefined;
+        oldMouseY = undefined;
+        oldI = undefined;
+        oldJ = undefined;
+    }, false)
+
+document.addEventListener('mousedown', () => { isMouseDown = true; }, false)
+canvas.addEventListener('mousemove', onMouseMove, false)
 
 
 function onMouseMove(e) {
-    const mouseX = e.offsetX,
-        mouseY = e.offsetY;
+    const mouseX = e.offsetX
+    const mouseY = e.offsetY;
 
     // Find the cell below the mouse
-    const i = mouseX + 1, j = mouseY + 1;
+    const i = mouseX + 1
+    const j = mouseY + 1
 
     // Don't overflow grid bounds
-    if (i > SIZE || i < 1 || j > SIZE || j < 1) return;
+    if (i > SIZE || i < 1 || j > SIZE || j < 1){
+        return
+    }
 
     // Mouse velocity
-    const du = (mouseX - oldMouseX) * 0.5,
-        dv = (mouseY - oldMouseY) * 0.5;
+    const du = (mouseX - oldMouseX)
+    const dv = (mouseY - oldMouseY)
 
     // Add the mouse velocity to cells above, below, to the left, and to the right.
 
@@ -118,8 +109,10 @@ function onMouseMove(e) {
 
         for(let di = -velSize; di <= velSize; di++) {
             for(let dj = -velSize; dj <= velSize; dj++) {
-                fs.uOld[fs.I(i + di, j + dj)] = du * velScale;
-                fs.vOld[fs.I(i + di, j + dj)] = dv * velScale;
+                const ix = Math.round(i + di)
+                const iy = Math.round(j + dj)
+                fs.uOld[fs.getArrayIndex(ix, iy)] = du * velScale
+                fs.vOld[fs.getArrayIndex(ix, iy)] = dv * velScale
             }
         }
     
@@ -145,8 +138,12 @@ function onMouseMove(e) {
                         const val = 0.62
                         const randomness = 0.06
                         const drawingVal = val + (2*Math.random() - 1) * randomness
-                        fs.dOld[fs.I(iDraw + di, jDraw + dj)] = drawingVal
-                        fs.d[fs.I(iDraw + di, jDraw + dj)] = drawingVal
+
+                        const ix = Math.round(iDraw + di)
+                        const iy = Math.round(jDraw + dj)
+
+                        fs.dOld[fs.getArrayIndex(ix, iy)] = drawingVal
+                        fs.d[fs.getArrayIndex(ix, iy)] = drawingVal
                     }
                 }
             }
@@ -157,15 +154,13 @@ function onMouseMove(e) {
     }
 
     // Save current mouse position for next frame
-    oldMouseX = mouseX;
-    oldMouseY = mouseY;
+    oldMouseX = mouseX
+    oldMouseY = mouseY
 
     oldI = i
     oldJ = j
 
-} // End onMouseMove()
-
-
+} 
 
 /**
  * Update loop
@@ -174,23 +169,23 @@ function update(/*time*/) {
     
 
     // Step the fluid simulation
-    fs.velocityStep();
-    fs.densityStep();
+    fs.velocityStep()
+    fs.densityStep()
 
     // Clear the canvas
-    context.clearRect(0, 0, SIZE, SIZE);
+    context.clearRect(0, 0, SIZE, SIZE)
 
     // Draw the last frame's buffer and clear for drawing the current.
-    context.putImageData(fdBuffer, 0, 0);
+    context.putImageData(fdBuffer, 0, 0)
 
-    const context2 = canvas2.getContext('2d');
+    const context2 = canvas2.getContext('2d')
     context2.putImageData(fdBuffer, 0, 0)
 
     const p = 0.01
     const f = n => Math.pow((n/255), p) * 255
     
-    const imageData = context2.getImageData(0,0,canvas2.width,canvas2.height);
-    var data = imageData.data;
+    const imageData = context2.getImageData(0,0,canvas2.width,canvas2.height)
+    var data = imageData.data
 
     for(var x = 0, len = data.length; x < len; x+=4) {
         data[x] = f(data[x])
@@ -200,57 +195,49 @@ function update(/*time*/) {
 
     context2.putImageData(imageData, 0, 0)
 
-    clearImageData(fdBuffer);
+    clearImageData(fdBuffer)
 
 
     // Render fluid
     for (let i = 1; i <= SIZE; i++) {
-        // The x position of current cell
-        const dx = (i - 0.5);
 
         for (let j = 1; j <= SIZE; j++) {
-            // The y position of current cell
-            const dy = (j - 0.5);
 
-            const cellIndex = i + (SIZE + 2) * j;
+            const cellIndex = i + (SIZE + 2) * j
 
             // Draw density
-            const density = 1 - fs.d[cellIndex];
-
-
-            //console.log(density)
-
+            const density = 1 - fs.d[cellIndex]
 
             if (density >= 0) {
                 const color = density * 255;
 
 
 
-                const r = color;
-                const g = color;
-                const b = color;
+                const r = color
+                const g = color
+                const b = color
 
                 // Draw the cell on an image for performance reasons
                 for (let l = 0; l < 1; l++) {
                     for (let m = 0; m < 1; m++) {
-                        const pxX = (i - 1) + l;
-                        const pxY = (j - 1) + m;
-                        const pxIdx = ((pxX | pxX) + (pxY | pxY) * SIZE) * 4;
+                        const pxX = (i - 1) + l
+                        const pxY = (j - 1) + m
+                        const pxIdx = ((pxX | pxX) + (pxY | pxY) * SIZE) * 4
 
-                        fdBuffer.data[pxIdx    ] = r;
-                        fdBuffer.data[pxIdx + 1] = g;
-                        fdBuffer.data[pxIdx + 2] = b;
-                        fdBuffer.data[pxIdx + 3] = 255;
+                        fdBuffer.data[pxIdx    ] = r
+                        fdBuffer.data[pxIdx + 1] = g
+                        fdBuffer.data[pxIdx + 2] = b
+                        fdBuffer.data[pxIdx + 3] = 255
                     }
                 }
             }
 
           
-        } // End for all cells in the y direction
+        }
 
-    } // End for all cells in the x direction
+    }
 
-    requestAnimationFrame(update);
+    requestAnimationFrame(update)
 }
 
 
