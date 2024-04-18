@@ -6,10 +6,14 @@ import { FluidSolver } from './fluidsolver.js';
 const SIZE = 256
 
 const canvas = document.getElementById('main-canvas')
-const context = canvas.getContext('2d')
 const canvas2 = document.getElementById('main-canvas2')
 const canvas3 = document.getElementById('main-canvas3')
 const context3 = canvas3.getContext('2d')
+
+const context = canvas.getContext('2d')
+
+const context2 = canvas2.getContext('2d')
+context2.willReadFrequently = true
 
 canvas.width = canvas.height = SIZE
 canvas2.width = canvas2.height = SIZE
@@ -178,7 +182,6 @@ function update(/*time*/) {
     // Draw the last frame's buffer and clear for drawing the current.
     context.putImageData(fdBuffer, 0, 0)
 
-    const context2 = canvas2.getContext('2d')
     context2.putImageData(fdBuffer, 0, 0)
 
     const p = 0.01

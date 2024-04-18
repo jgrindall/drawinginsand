@@ -3,6 +3,15 @@ import {Noise} from 'noisejs'
 
 const noise = new Noise(Math.random())
 
+export interface IFluidSolver{
+    velocityStep():void
+    densityStep():void
+    resetVelocity():void
+    resetDensity():void
+    updateVelocity(ix:number, iy:number, u:number, v:number):void
+    updateDensity(ix:number, iy:number, drawingVal:number, updateOld:boolean):void
+    getDensities():number[]
+}
 export class FluidSolver {
 
     // Boundaries enumeration.
@@ -28,15 +37,19 @@ export class FluidSolver {
      * @constructor
      */
     constructor(private size:number, originalDensityCanvas: HTMLCanvasElement) {
-        this.originalDensityData = originalDensityCanvas
-            .getContext("2d")!
+        const context = originalDensityCanvas.getContext("2d")!
+
+        //@ts-ignore
+        context.willReadFrequently = true
+
+        this.originalDensityData = context
             .getImageData(0, 0, this.size, this.size)
             .data
 
         this.timeStep = 0.000025
         
         // Number of iterations to use in the Gauss-Seidel method in linearSolve()
-        this.iterations = 2
+        this.iterations = 1
 
         // Two extra cells in each dimension for the boundaries
         this.cellCount = (this.size + 2) * (this.size + 2)
@@ -69,6 +82,10 @@ export class FluidSolver {
         }
     }
 
+    public getDensities(){
+        return this.d
+    }
+
     public updateDensity(ix:number, iy:number, drawingVal:number, updateOld:boolean = false):void{
         this.d[this.getArrayIndex(ix, iy)] = drawingVal
         if(updateOld){
@@ -76,17 +93,16 @@ export class FluidSolver {
         }
     }
 
-    public updateVelocity(ix:number, iy:number, u:number, v:number){
+    public updateVelocity(ix:number, iy:number, u:number, v:number): void{
         this.uOld[this.getArrayIndex(ix, iy)] = u
         this.vOld[this.getArrayIndex(ix, iy)] = v
     }
 
     // note: i goes from 0 to (n + 2) * (n + 2)
-    protected getInitialDensityAtIndex(i: number){
+    protected getInitialDensityAtIndex(i: number): number{
         let ix = Math.floor(i / (this.size + 2))
         let iy = i - ix*(this.size + 2)
         if(ix == 0 || ix == this.size + 1 || iy == 0 || iy == this.size + 1){
-            //TODO or 1?
             return 0
         }
         ix -= 1
@@ -98,7 +114,7 @@ export class FluidSolver {
         const a = this.originalDensityData[index + 3]
         const avg = (r + g + b) / 3
         const value = avg * (a / 255) / 255
-        return 1 -  value
+        return 1 - value
     }
 
     /**
@@ -115,10 +131,10 @@ export class FluidSolver {
     public densityStep():void {
         this.addSource(this.d, this.dOld)
 
-        this.swapD();
+        this.swapD()
         this.diffuse(FluidSolver.BOUNDARY_NONE, this.d, this.dOld)
 
-        this.swapD();
+        this.swapD()
         this.advect(FluidSolver.BOUNDARY_NONE, this.d, this.dOld, this.u, this.v)
 
         this.enforceSum()
@@ -173,7 +189,6 @@ export class FluidSolver {
      */
     public resetVelocity() :void {
         for (let i = 0; i < this.cellCount; i++) {
-            // Set a small value, so we can render the velocity field
             this.v[i] = 0
             this.u[i] = 0
         }
@@ -265,8 +280,11 @@ export class FluidSolver {
         const dt0 = this.timeStep * this.size;
         for (let i = 1; i <= this.size; i++) {
             for (let j = 1; j <= this.size; j++) {
-                let x = i - dt0 * u[this.getArrayIndex(i, j)]
-                let y = j - dt0 * v[this.getArrayIndex(i, j)]
+
+                const arrayIndex = this.getArrayIndex(i, j)
+
+                let x = i - dt0 * u[arrayIndex]
+                let y = j - dt0 * v[arrayIndex]
 
                 if (x < 0.5) x = 0.5
                 if (x > this.size + 0.5) x = this.size + 0.5
@@ -284,7 +302,7 @@ export class FluidSolver {
                 const t1 = y - j0
                 const t0 = 1 - t1
 
-                d[this.getArrayIndex(i, j)] = s0 * (t0 * d0[this.getArrayIndex(i0, j0)] + t1 * d0[this.getArrayIndex(i0, j1)]) +
+                d[arrayIndex] = s0 * (t0 * d0[this.getArrayIndex(i0, j0)] + t1 * d0[this.getArrayIndex(i0, j1)]) +
                     s1 * (t0 * d0[this.getArrayIndex(i1, j0)] + t1 * d0[this.getArrayIndex(i1, j1)])
             }
         }
@@ -310,10 +328,19 @@ export class FluidSolver {
     protected project(u: number[], v:number[], p:number[], div:number[]) :void {
         // Calculate the gradient field
         const h = 1.0 / this.size;
+
+        const halfH = h*0.5
+
+        const halfOverH = 0.5/h
+
         for (let i = 1; i <= this.size; i++) {
             for (let j = 1; j <= this.size; j++) {
-                div[this.getArrayIndex(i, j)] = -0.5 * h * (u[this.getArrayIndex(i + 1, j)] - u[this.getArrayIndex(i - 1, j)] +
-                    v[this.getArrayIndex(i, j + 1)] - v[this.getArrayIndex(i, j - 1)])
+
+                const arrayIndex = this.getArrayIndex(i, j)
+                const arrayIndexBelow = arrayIndex + (this.size + 2)
+                const arrayIndexAbove = arrayIndex - (this.size + 2)
+                
+                div[arrayIndex] = -halfH * (u[arrayIndex + 1] - u[arrayIndex - 1] + v[arrayIndexBelow] - v[arrayIndexAbove])
 
                 p[this.getArrayIndex(i, j)] = 0
             }
@@ -328,8 +355,13 @@ export class FluidSolver {
         // Subtract the gradient field from the velocity field to get a mass conserving velocity field.
         for (let i = 1; i <= this.size; i++) {
             for (let j = 1; j <= this.size; j++) {
-                u[this.getArrayIndex(i, j)] -= 0.5 * (p[this.getArrayIndex(i + 1, j)] - p[this.getArrayIndex(i - 1, j)]) / h
-                v[this.getArrayIndex(i, j)] -= 0.5 * (p[this.getArrayIndex(i, j + 1)] - p[this.getArrayIndex(i, j - 1)]) / h
+
+                const arrayIndex = this.getArrayIndex(i, j)
+                const arrayIndexBelow = arrayIndex + (this.size + 2)
+                const arrayIndexAbove = arrayIndex - (this.size + 2)
+
+                u[arrayIndex] -= halfOverH * (p[arrayIndex + 1] - p[arrayIndex - 1])
+                v[arrayIndex] -= halfOverH * (p[arrayIndexBelow] - p[arrayIndexAbove])
             }
         }
 
@@ -353,8 +385,12 @@ export class FluidSolver {
         for (let k = 0; k < this.iterations; k++) {
             for (let i = 1; i <= this.size; i++) {
                 for (let j = 1; j <= this.size; j++) {
-                    x[this.getArrayIndex(i, j)] = (x0[this.getArrayIndex(i, j)] + a * (x[this.getArrayIndex(i - 1, j)] + x[this.getArrayIndex(i + 1, j)] +
-                        x[this.getArrayIndex(i, j - 1)] + x[this.getArrayIndex(i, j + 1)])) * invC
+                    
+                    const arrayIndex = this.getArrayIndex(i, j)
+                    const arrayIndexBelow = arrayIndex + (this.size + 2)
+                    const arrayIndexAbove = arrayIndex - (this.size + 2)
+
+                    x[arrayIndex] = (x0[arrayIndex] + a * (x[arrayIndex - 1] + x[arrayIndex + 1] + x[arrayIndexAbove] + x[arrayIndexBelow])) * invC
                 }
             }
 
