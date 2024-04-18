@@ -1,19 +1,22 @@
 
 import * as THREE from 'three';
-import { FluidSolver } from './fluidsolver.js';
-
+import { FluidSolver } from './fluidsolver';
+import { clearImageData } from './utils';
 
 const SIZE = 256
 
-const canvas = document.getElementById('main-canvas')
-const context = canvas.getContext('2d')
-const canvas2 = document.getElementById('main-canvas2')
-const canvas3 = document.getElementById('main-canvas3')
-const context3 = canvas3.getContext('2d')
+const canvas = document.getElementById('main-canvas') as HTMLCanvasElement
+const context = canvas!.getContext('2d')
+const canvas2 = document.getElementById('main-canvas2') as HTMLCanvasElement
+const canvas3 = document.getElementById('main-canvas3') as HTMLCanvasElement
+const context3 = canvas3!.getContext('2d')
 
-canvas.width = canvas.height = SIZE
-canvas2.width = canvas2.height = SIZE
-canvas3.width = canvas3.height = SIZE
+canvas!.width = SIZE
+canvas!.height = SIZE
+canvas2!.width = SIZE
+canvas2!.height = SIZE
+canvas3!.width = SIZE
+canvas3!.height = SIZE
 
 const img = new Image()
 const imgCanvas = document.createElement('canvas')
@@ -22,15 +25,12 @@ imgCanvas.height = SIZE
 const imgContext = imgCanvas.getContext('2d')
 
 img.onload = ()=>{
-    imgContext.drawImage(img, 0, 0, SIZE, SIZE)
+    imgContext!.drawImage(img, 0, 0, SIZE, SIZE)
     init()
 }
 img.src = "/paint.png"
 
-const brush = new Image()
-brush.src = "/brush3.png"
-
-let fs, appOptions;
+let fs:FluidSolver, appOptions;
 
 const init = ()=>{
     fs = new FluidSolver(SIZE, imgCanvas)
@@ -45,17 +45,17 @@ const init = ()=>{
 }
 
 // We draw the density on a bitmap for performance reasons
-const fdBuffer = context.createImageData(SIZE, SIZE)
+const fdBuffer = context!.createImageData(SIZE, SIZE)
 
 // Demo app variables
 let isMouseDown = false
-let oldMouseX = undefined
-let oldMouseY = undefined
-let oldI = undefined
-let oldJ = undefined
+let oldMouseX:number | undefined = undefined
+let oldMouseY:number | undefined = undefined
+let oldI:number | undefined = undefined
+let oldJ:number | undefined = undefined
 
-context3.fillStyle = "#ffffff"
-context3.fillRect(0, 0, SIZE, SIZE)
+context3!.fillStyle = "#ffffff"
+context3!.fillRect(0, 0, SIZE, SIZE)
 
 document.addEventListener('mouseup', () => {
         isMouseDown = false;
@@ -65,13 +65,18 @@ document.addEventListener('mouseup', () => {
         oldJ = undefined;
     }, false)
 
-document.addEventListener('mousedown', () => { isMouseDown = true; }, false)
-canvas.addEventListener('mousemove', onMouseMove, false)
+document.addEventListener('mousedown', () => {
+    isMouseDown = true;
+}, false)
 
+canvas!.addEventListener('mousemove', onMouseMove, false)
 
-function onMouseMove(e) {
+function onMouseMove(e: any) {
     const mouseX = e.offsetX
-    const mouseY = e.offsetY;
+    const mouseY = e.offsetY
+
+    oldMouseX = oldMouseX || mouseX
+    oldMouseY = oldMouseY || mouseY
 
     // Find the cell below the mouse
     const i = mouseX + 1
@@ -83,8 +88,8 @@ function onMouseMove(e) {
     }
 
     // Mouse velocity
-    const du = (mouseX - oldMouseX)
-    const dv = (mouseY - oldMouseY)
+    const du = (mouseX - oldMouseX!)
+    const dv = (mouseY - oldMouseY!)
 
     // Add the mouse velocity to cells above, below, to the left, and to the right.
 
@@ -115,8 +120,7 @@ function onMouseMove(e) {
             for(let dj = -velSize; dj <= velSize; dj++) {
                 const ix = Math.round(i + di)
                 const iy = Math.round(j + dj)
-                fs.uOld[fs.getArrayIndex(ix, iy)] = du * velScale
-                fs.vOld[fs.getArrayIndex(ix, iy)] = dv * velScale
+                fs.updateVelocity(ix, iy, du * velScale, dv * velScale)
             }
         }
     
@@ -145,8 +149,7 @@ function onMouseMove(e) {
                         const ix = Math.round(iDraw + di)
                         const iy = Math.round(jDraw + dj)
 
-                        fs.dOld[fs.getArrayIndex(ix, iy)] = drawingVal
-                        fs.d[fs.getArrayIndex(ix, iy)] = drawingVal
+                        fs.updateDensity(ix, iy, drawingVal, true)
                     }
                 }
             }
@@ -166,25 +169,20 @@ function onMouseMove(e) {
  * Update loop
  */
 function update(/*time*/) {
-    
-
-    // Step the fluid simulation
     fs.velocityStep()
     fs.densityStep()
 
-    // Clear the canvas
-    context.clearRect(0, 0, SIZE, SIZE)
-
+    context!.clearRect(0, 0, SIZE, SIZE)
     // Draw the last frame's buffer and clear for drawing the current.
-    context.putImageData(fdBuffer, 0, 0)
+    context!.putImageData(fdBuffer, 0, 0)
+    //TODO - optimise this!
 
     const context2 = canvas2.getContext('2d')
-    context2.putImageData(fdBuffer, 0, 0)
-
+    context2!.putImageData(fdBuffer, 0, 0)
     const p = 0.01
-    const f = n => Math.pow((n/255), p) * 255
+    const f = (n:number) => Math.pow((n/255), p) * 255
     
-    const imageData = context2.getImageData(0,0,canvas2.width,canvas2.height)
+    const imageData = context2!.getImageData(0, 0, canvas2.width, canvas2.height)
     var data = imageData.data
 
     for(var x = 0, len = data.length; x < len; x+=4) {
@@ -193,25 +191,18 @@ function update(/*time*/) {
         data[x + 2] = f(data[x + 2])
     }
 
-    context2.putImageData(imageData, 0, 0)
+    context2!.putImageData(imageData, 0, 0)
 
     clearImageData(fdBuffer)
 
-
     // Render fluid
     for (let i = 1; i <= SIZE; i++) {
-
         for (let j = 1; j <= SIZE; j++) {
-
             const cellIndex = i + (SIZE + 2) * j
-
             // Draw density
             const density = 1 - fs.d[cellIndex]
-
             if (density >= 0) {
                 const color = density * 255;
-
-
 
                 const r = color
                 const g = color
@@ -231,35 +222,11 @@ function update(/*time*/) {
                     }
                 }
             }
-
-          
         }
-
     }
-
     requestAnimationFrame(update)
 }
 
-
-
-/**
- * Clears all the pixels on the image data.
- *
- * @param image {ImageData}
- */
-function clearImageData(image) {
-    for (let i = 0; i < image.data.length; i++) {
-        if ((i % 4) === 0) {
-            image.data[i] = 100;
-
-        } else {
-            image.data[i] = 0;
-        }
-    }
-}
-
-
-///////////////
 
 const contentsTexture = new THREE.CanvasTexture(canvas)
 
@@ -270,11 +237,10 @@ const purple = 0x8E24AA
 
 const renderer = new THREE.WebGLRenderer({
     antialias: true,
-    alpha: true,
-    backgroundColor: purple
+    alpha: true
 })
 
-container.appendChild(renderer.domElement)
+container!.appendChild(renderer.domElement)
 
 const w = 800
 const h = 600
@@ -284,9 +250,9 @@ renderer.setSize(w, h)
 const camera = new THREE.PerspectiveCamera( 45, w/h, 1, 10000 )
 camera.position.set( 0, 0, 10 )
 
-const scene = new THREE.Scene({
-    backgroundColor: new THREE.Color( purple )
-})
+const scene = new THREE.Scene()
+
+scene.background = new THREE.Color( purple )
 
 const color = 0xf3e9bd
 //0xffffff
@@ -340,13 +306,12 @@ scene.add(g)
 const render = () => {
     renderer.render(scene, camera)
     contentsTexture.needsUpdate = true
-    //g.rotateX(-0.005)
     aTexture.needsUpdate = true
     material.needsUpdate = true
     requestAnimationFrame(render)
 }
 
-render(0)
+render()
 
 
 
