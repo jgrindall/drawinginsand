@@ -104,8 +104,8 @@ function onMouseMove(e) {
 
     // 0 -> MAX_SIZE  1 -> MIN_SIZE
 
-    const MIN_SIZE = SIZE / 150
-    const MAX_SIZE = SIZE / 100
+    const MIN_SIZE = SIZE / 100
+    const MAX_SIZE = SIZE / 50
 
     const size = speedFrac * (MIN_SIZE - MAX_SIZE) + MAX_SIZE
 
@@ -114,7 +114,7 @@ function onMouseMove(e) {
        
         const velScale = 10000
 
-        const velSize = size*2
+        const velSize = size*4
 
         for(let di = -velSize; di <= velSize; di++) {
             for(let dj = -velSize; dj <= velSize; dj++) {
@@ -152,8 +152,8 @@ function onMouseMove(e) {
             }
 
         }
-        const s = 14
-        context3.drawImage(brush, i - s/2, j - s/2, s, s) 
+        //const brushSize = 14
+        //context3.drawImage(brush, i - s/2, j - s/2, s, s) 
     }
 
     // Save current mouse position for next frame
@@ -171,8 +171,7 @@ function onMouseMove(e) {
  * Update loop
  */
 function update(/*time*/) {
-    const invMaxColor = 1.0 / 255;
-
+    
 
     // Step the fluid simulation
     fs.velocityStep();
@@ -187,7 +186,7 @@ function update(/*time*/) {
     const context2 = canvas2.getContext('2d');
     context2.putImageData(fdBuffer, 0, 0)
 
-    const p = 0.2
+    const p = 0.01
     const f = n => Math.pow((n/255), p) * 255
     
     const imageData = context2.getImageData(0,0,canvas2.width,canvas2.height);
@@ -228,8 +227,8 @@ function update(/*time*/) {
 
 
                 const r = color;
-                const g = ((appOptions.grayscale) ? color : color * dx * invMaxColor);
-                const b = ((appOptions.grayscale) ? color : color * dy * invMaxColor);
+                const g = color;
+                const b = color;
 
                 // Draw the cell on an image for performance reasons
                 for (let l = 0; l < 1; l++) {
@@ -302,11 +301,14 @@ const scene = new THREE.Scene({
     backgroundColor: new THREE.Color( purple )
 })
 
-const light = new THREE.DirectionalLight( 0xffffff, 4 )
+const color = 0xf3e9bd
+//0xffffff
+
+const light = new THREE.DirectionalLight( color, 4 )
 light.position.set( 0.5, 0.5, 1 )
 scene.add( light )
 
-const ambientLight = new THREE.AmbientLight( 0xffffff, 1 )
+const ambientLight = new THREE.AmbientLight( color, 1 )
 scene.add( ambientLight )
 
 let geometry = new THREE.PlaneGeometry(5, 5, 256, 256)
@@ -314,7 +316,7 @@ let geometry = new THREE.PlaneGeometry(5, 5, 256, 256)
 const displacementScale = 0.125
 
 let material = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff,
+    color: color,
     bumpMap: contentsTexture,
     bumpScale: 50,
     displacementMap: contentsTexture,
